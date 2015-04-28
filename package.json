@@ -1,0 +1,34 @@
+{
+  "name": "snappit-mocha-protractor",
+  "version": "0.0.1",
+  "description": "Take screenshots of just a section of your screen in Protractor tests. For Mocha.",
+  "main": "index.js",
+  "scripts": {
+  },
+  "keywords": [
+    "testing",
+    "screenshots",
+    "visual-regression",
+    "selenium",
+    "protractor",
+    "mocha"
+  ],
+  "author": "Andrew Yurisich <droogans@gmail.com> (http://andrew.yurisich.com/)",
+  "license": "Apache License, Version 2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rackerlabs/snappit-mocha-protractor"
+  },
+  "dependencies": {
+    "fs-extra": "^0.18.2",
+    "imagediff": "^1.0.8",
+    "lodash": "^3.7.0",
+    "lwip": "0.0.6"
+  },
+  "devDependencies": {
+    "chai": "^2.3.0",
+    "chai-as-promised": "^5.0.0",
+    "mocha": "^2.2.4",
+    "protractor": "^2.0.0"
+  }
+}
