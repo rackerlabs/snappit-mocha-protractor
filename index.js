@@ -1,10 +1,13 @@
 var path = require('path');
 
 var _ = require('lodash');
+var chalk = require('chalk');
 var fs = require('fs-extra');
 var lwip = require('lwip');
+var resemble = require('node-resemble');
 
 module.exports.logWarnings = true;
+module.exports.threshold = 4; // percent
 
 var noScreenshot = function (element, reason, fileName) {
     if (module.exports.logWarnings) {
@@ -62,6 +65,53 @@ var getScreenshotNameFromContext = function (testContext) {
     });
 };
 
+var writeImage = function (image, screenshotName, deferred) {
+    var flow = browser.controlFlow();
+    var writeFileFn = function () {
+        image.writeFile(screenshotName, function (err) {
+            if (err) {
+                console.log('Error saving screenshot:', err);
+                return deferred.reject();
+            }
+            return deferred.fulfill();
+        });
+    };
+    flow.execute(writeFileFn);
+};
+
+// compares the image before saving it, using `threshold` setting as a gate.
+var saveImage = function (image, screenshotName, deferred) {
+    var flow = browser.controlFlow();
+    if (fs.existsSync(screenshotName)) {
+        var toBufferFn = function () {
+            image.toBuffer('png', { compression: 'none' }, function (err, imageBuffer) {
+                if (err) {
+                    console.log('Error creating comparison image buffer', err);
+                    deferred.reject();
+                }
+                var comparisonFn = function () {
+                    var comparison = resemble(imageBuffer).compareTo(screenshotName);
+                    comparison.onComplete(function (data) {
+                        if (parseFloat(data.misMatchPercentage) > module.exports.threshold) {
+                            if (module.exports.logWarnings) {
+                                var percentage = chalk.yellow.bold(data.misMatchPercentage + '%');
+                                var shortName = chalk.red(path.basename(screenshotName));
+                                console.log('%s difference in screenshot %s', percentage, shortName);
+                            }
+                            return writeImage(image, screenshotName, deferred);
+                        }
+                        return deferred.fulfill();
+                    });
+                };
+                flow.execute(comparisonFn);
+            });
+        };
+        flow.execute(toBufferFn);
+    } else {
+        return writeImage(image, screenshotName, deferred);
+    }
+};
+
 var cropAndSaveImage = function (image, elem, imageName, deferred) {
     return elem.isPresent().then(function (present) {
         if (present) {
@@ -85,14 +135,7 @@ var cropAndSaveImage = function (image, elem, imageName, deferred) {
                             noScreenshot(elem, 'not displayed.', imageName);
                             return deferred.reject();
                         }
-                        fs.mkdirs(path.dirname(imageName));
-                        image.writeFile(imageName, function (err) {
-                            if (err) {
-                                console.log('Error saving cropped screenshot:', err);
-                                return deferred.reject();
-                            }
-                            return deferred.fulfill();
-                        });
+                        return saveImage(image, imageName, deferred);
                     }
                 );
             });
@@ -105,7 +148,7 @@ var cropAndSaveImage = function (image, elem, imageName, deferred) {
 
 /**
    Calling this function with no `elem` will take a screenshot of the entire browser window.
-   @param {String} screenshotName - Name of the screenshot to save.
+   @param {Object} testContext - The `this` object from the current mocha test.
    @param {WebElement} [elem=] - Crop screenshot to contain just `elem`. If undefined, snap entire browser screen.
    @returns {undefined}
 */
@@ -114,32 +157,22 @@ exports.snap = function (testContext, elem) {
     var snapFn = function () {
         return getScreenshotNameFromContext(testContext).then(function (screenshotName) {
             return browser.takeScreenshot().then(function (screenshotData) {
-                var handleScreenshot = function () {
-                    var deferred = protractor.promise.defer();
-                    lwip.open(new Buffer(screenshotData, 'base64'), 'png', function (err, image) {
-                        if (err) {
-                            console.log('Error opening screenshot:', err);
-                            return deferred.reject();
-                        }
-                        if (elem === undefined) {
-                            // without an `elem` to crop to, rename the file to be the full screenshot
-                            var fullScreenName = screenshotName + '-full-screen.png';
-                            fs.mkdirs(path.dirname(fullScreenName));
-                            image.writeFile(fullScreenName, function (err) {
-                                if (err) {
-                                    console.log('Error saving screenshot:', err);
-                                    return deferred.reject();
-                                }
-                                return deferred.fulfill();
-                            });
-                        } else {
-                            var croppedName = [screenshotName, '-', elem.locator().toString() + '.png'].join('');
-                            cropAndSaveImage(image, elem, croppedName, deferred);
-                        }
-                    });
-                    return deferred.promise;
-                };
-                return flow.execute(handleScreenshot);
+                var deferred = protractor.promise.defer();
+                lwip.open(new Buffer(screenshotData, 'base64'), 'png', function (err, image) {
+                    if (err) {
+                        console.log('Error opening screenshot:', err);
+                        return deferred.reject();
+                    }
+                    if (elem === undefined) {
+                        // without an `elem` to crop to, rename the file to be the full screenshot
+                        var fullScreenName = screenshotName + '-full-screen.png';
+                        return saveImage(image, fullScreenName, deferred);
+                    } else {
+                        var croppedName = [screenshotName, '-', elem.locator().toString() + '.png'].join('');
+                        return cropAndSaveImage(image, elem, croppedName, deferred);
+                    }
+                });
+                return deferred.promise;
             });
         });
     };
