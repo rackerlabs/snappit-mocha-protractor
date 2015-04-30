@@ -13,14 +13,14 @@ describe('Angular JS', function () {
     describe('Tutorial', function () {
 
         before(function () {
-            $('.dropdown .icon-book').click();
+            $('.dropdown .icon-eye-open').click();
             screenshot.snap(this, $('.dropdown.open .dropdown-menu'));
-            element(by.cssContainingText('.dropdown.open a', 'Tutorial')).click();
+            element(by.cssContainingText('.dropdown.open a', 'FAQ')).click();
         });
 
         it('should have an odd title', function () {
             screenshot.snap(this);
-            expect(browser.getTitle()).to.eventually.contain('Tutorial: Tutorial');
+            expect(browser.getTitle()).to.eventually.contain('FAQ');
         });
 
     });
