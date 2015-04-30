@@ -6,7 +6,7 @@ describe('Angular JS', function () {
     });
 
     it('should be on the right page', function () {
-        screenshot.snap(this, $('.navbar-inner .container'));
+        screenshot.snap(this, $('.center.stage-buttons'), [[1366, 768], [320, 568]]);
         expect(browser.getTitle()).to.eventually.contain('AngularJS');
     });
 

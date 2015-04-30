@@ -5,6 +5,7 @@ var chalk = require('chalk');
 var fs = require('fs-extra');
 var lwip = require('lwip');
 var resemble = require('node-resemble');
+var zfill = require('zfill');
 
 module.exports.logWarnings = true;
 module.exports.threshold = 4; // percent
@@ -52,22 +53,26 @@ var handleMochaHooks = function (testContext) {
 
 var getScreenshotNameFromContext = function (testContext) {
     return browser.getCapabilities().then(function (capabilities) {
-        var browserName = capabilities.caps_.browserName;
-        var screenshotDir = path.join('screenshots', browserName);
-        var test = handleMochaHooks(testContext);
-        var fullyQualifiedPath = test.file.split('/');
-        var commonPath = _.takeWhile(path.resolve(__dirname).split('/'), function (directoryPart, index) {
-            return directoryPart === fullyQualifiedPath[index];
-        }).join('/');
-        var relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '').replace(/\.js$/, '');
-        var rawName = path.join(screenshotDir, relativeFilePath, test.fullTitle);
-        return fileSystemFriendly(rawName);
+        return browser.driver.manage().window().getSize().then(function (resolution) {
+            var resolutionString = [zfill(resolution.width, 4), zfill(resolution.height, 4)].join('x');
+            var browserName = capabilities.caps_.browserName;
+            var screenshotDir = path.join('screenshots', browserName);
+            var test = handleMochaHooks(testContext);
+            var fullyQualifiedPath = test.file.split('/');
+            var commonPath = _.takeWhile(path.resolve(__dirname).split('/'), function (directoryPart, index) {
+                return directoryPart === fullyQualifiedPath[index];
+            }).join('/');
+            var relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '').replace(/\.js$/, '');
+            var rawName = path.join(screenshotDir, relativeFilePath, test.fullTitle, resolutionString);
+            return fileSystemFriendly(rawName);
+        });
     });
 };
 
 var writeImage = function (image, screenshotName, deferred) {
     var flow = browser.controlFlow();
     var writeFileFn = function () {
+        fs.mkdirs(path.dirname(screenshotName));
         image.writeFile(screenshotName, function (err) {
             if (err) {
                 console.log('Error saving screenshot:', err);
@@ -150,10 +155,30 @@ var cropAndSaveImage = function (image, elem, imageName, deferred) {
    Calling this function with no `elem` will take a screenshot of the entire browser window.
    @param {Object} testContext - The `this` object from the current mocha test.
    @param {WebElement} [elem=] - Crop screenshot to contain just `elem`. If undefined, snap entire browser screen.
+   @param {Array<Array<Number>>} resolutions - List of two-part arrays containing browser resolutions to snap.
    @returns {undefined}
 */
-exports.snap = function (testContext, elem) {
+exports.snap = function (testContext, elem, resolutions) {
     var flow = browser.controlFlow();
+    if (resolutions !== undefined) {
+        return browser.driver.manage().window().getSize().then(function (originalResolution) {
+            var originalWidth = originalResolution.width;
+            var originalHeight = originalResolution.height;
+            _.forEach(resolutions, function (resolution) {
+                var takeEachScreenshotFn = function () {
+                    var width = resolution[0];
+                    var height = resolution[1];
+                    browser.driver.manage().window().setSize(width, height);
+                    browser.sleep(175);
+                    exports.snap(testContext, elem);
+                };
+                return flow.execute(takeEachScreenshotFn);
+            });
+            browser.driver.manage().window().setSize(originalWidth, originalHeight);
+            exports.snap(testContext, elem);
+        });
+    }
+
     var snapFn = function () {
         return getScreenshotNameFromContext(testContext).then(function (screenshotName) {
             return browser.takeScreenshot().then(function (screenshotData) {
