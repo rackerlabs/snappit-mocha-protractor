@@ -33,7 +33,7 @@ describe('Angular JS', function () {
     });
 
     it('should be on the right page', function () {
-        screenshot.snap(this, $('.navbar-inner .container'));
+        screenshot.snap(this, $('.center.stage-buttons'), [[1366, 768], [320, 568]]);
         expect(browser.getTitle()).to.eventually.contain('AngularJS');
     });
 
@@ -54,3 +54,25 @@ describe('Angular JS', function () {
 
 });
 ```
+
+## Testing Responsive Elements
+
+The first call to `screenshot.snap` in the example above contains a list of width/height information. This will resize the screen, then take a screenshot of that element for each resolution passed in.
+
+```js
+screenshot.snap(this, $('.center.stage-buttons'), [[1366, 768], [320, 568]]);
+```
+
+*1366x768*
+
+![Laptop sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1366x0768-By.cssSelector(".center.stage-buttons").png)
+
+*320x568*
+
+![Mobile sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0335x0568-By.cssSelector(".center.stage-buttons").png)
+
+Finally, we return to the default screen size from the other tests, and take one last screenshot.
+
+*1233x771*
+
+![Original sized screenshot](screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1233x0771-By.cssSelector(".center.stage-buttons").png)
