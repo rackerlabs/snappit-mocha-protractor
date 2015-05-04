@@ -1,5 +1,3 @@
-var screenshot = require('../index');
-
 describe('Angular JS', function () {
     before(function () {
         browser.get('https://angularjs.org');
