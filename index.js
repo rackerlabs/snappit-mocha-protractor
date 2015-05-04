@@ -10,6 +10,7 @@ var zfill = require('zfill');
 module.exports.logWarnings = true;
 module.exports.threshold = 4; // percent
 module.exports.defaultResolutions = [];
+module.exports.disable = false;
 
 var noScreenshot = function (element, reason, fileName) {
     if (module.exports.logWarnings) {
@@ -154,11 +155,16 @@ var cropAndSaveImage = function (image, elem, imageName, deferred) {
 
 // [[111, 222], [222, 333], [111, 222]] -> [[111, 222], [222, 333]]
 // This exists in case you pass in a resolution that is already in module.exports.defaultResolutions
-var uniqueResolutions = function (resolutions) {
+var uniqueResolutions = function (resolutions, ignoreDefaultResolutions) {
     if (resolutions === undefined) {
         resolutions = [];
     }
-    var allResolutions = resolutions.concat(module.exports.defaultResolutions);
+
+    var allResolutions = resolutions;
+    if (ignoreDefaultResolutions === false) {
+        allResolutions = resolutions.concat(module.exports.defaultResolutions);
+    }
+
     return _.unique(allResolutions, function (resolution) {
         return resolution.join(' ');
     });
@@ -196,11 +202,25 @@ var snapOne = function (testContext, elem) {
    @param {Object} testContext - The `this` object from the current mocha test.
    @param {WebElement} [elem=] - Crop screenshot to contain just `elem`. If undefined, snap entire browser screen.
    @param {Array<Array<Number>>} resolutions - List of two-part arrays containing browser resolutions to snap.
+   @param {Object} config - Options to be used for just this call.
+   @param {Boolean} config.ignoreDefaultResolutions - Ignore using default resolutions for just one call.
    @returns {undefined}
 */
-exports.snap = function (testContext, elem, resolutions) {
+exports.snap = function (testContext, elem, resolutions, options) {
+    if (module.exports.disable) {
+        return;
+    }
+
+    if (options === undefined) {
+        options = {};
+    }
+
+    options = _.defaults(options, {
+        ignoreDefaultResolutions: false
+    });
+
     var flow = browser.controlFlow();
-    var allResolutions = uniqueResolutions(resolutions);
+    var allResolutions = uniqueResolutions(resolutions, options.ignoreDefaultResolutions);
     if (allResolutions.length) {
         return browser.driver.manage().window().getSize().then(function (originalResolution) {
             var originalWidth = originalResolution.width;
