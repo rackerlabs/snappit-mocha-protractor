@@ -169,7 +169,6 @@ exports.snap = function (testContext, elem, resolutions) {
                     var width = resolution[0];
                     var height = resolution[1];
                     browser.driver.manage().window().setSize(width, height);
-                    browser.sleep(175);
                     exports.snap(testContext, elem);
                 };
                 return flow.execute(takeEachScreenshotFn);
