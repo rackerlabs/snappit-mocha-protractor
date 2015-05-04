@@ -74,7 +74,7 @@ var getScreenshotNameFromContext = function (testContext) {
 var writeImage = function (image, screenshotName, deferred) {
     var flow = browser.controlFlow();
     var writeFileFn = function () {
-        fs.mkdirs(path.dirname(screenshotName));
+        fs.mkdirsSync(path.dirname(screenshotName));
         image.writeFile(screenshotName, function (err) {
             if (err) {
                 console.log('Error saving screenshot:', err);
