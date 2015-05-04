@@ -15,6 +15,11 @@ This tool uses Selenium, which you probably already have tests for, and integrat
 ```js
 onPrepare: function () {
     screenshot = require('snappit-mocha-protractor');
+    screenshot.configure({
+        // take two additional screenshots each time `snap` is called
+        defaultResolutions: [[1366, 768], [320, 568]],
+        threshold: 2 // percent
+    });
 }
 ```
 
@@ -65,7 +70,7 @@ screenshot.snap(this, $('.center.stage-buttons'), [[1366, 768], [320, 568]]);
 
 *1366x768*
 
-![Laptop sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1366x0768-By.cssSelector(".center.stage-buttons").png)
+![Tablet sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0768x1024-By.cssSelector(".center.stage-buttons").png)
 
 *320x568*
 
@@ -73,6 +78,22 @@ screenshot.snap(this, $('.center.stage-buttons'), [[1366, 768], [320, 568]]);
 
 Finally, we return to the default screen size from the other tests, and take one last screenshot.
 
-*1233x771*
+*1366x768*
 
-![Original sized screenshot](screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1233x0771-By.cssSelector(".center.stage-buttons").png)
+![Original sized screenshot](screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1366x0768-By.cssSelector(".center.stage-buttons").png)
+
+**Note**: Chrome can only support widths as low as 400px. Firefox can only go as low as 355px.
+
+## A word about Chrome
+
+Chrome screenshots that take up the entire screen are not like Firefox's. Firefox will capture the entire screen, even parts of it that are not currently viewable. Chrome will not!
+
+For example, this is what Firefox reports for a large, full-page screenshot on a tablet.
+
+![Large full screen image taken with Firefox](./screenshots/firefox/test/spec/Angular-JS-Tutorial-should-have-an-odd-title/0768x1024-full-screen.png)
+
+And the same one on Chrome.
+
+![Large full screen image taken with Chrome](./screenshots/chrome/test/spec/Angular-JS-Tutorial-should-have-an-odd-title/0768x1024-full-screen.png)
+
+Because of this, and possibly other reasons, taking screenshots with Chrome is *significantly* faster than Firefox.

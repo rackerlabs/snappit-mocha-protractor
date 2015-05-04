@@ -9,6 +9,7 @@ var zfill = require('zfill');
 
 module.exports.logWarnings = true;
 module.exports.threshold = 4; // percent
+module.exports.defaultResolutions = [];
 
 var noScreenshot = function (element, reason, fileName) {
     if (module.exports.logWarnings) {
@@ -151,33 +152,20 @@ var cropAndSaveImage = function (image, elem, imageName, deferred) {
     });
 };
 
-/**
-   Calling this function with no `elem` will take a screenshot of the entire browser window.
-   @param {Object} testContext - The `this` object from the current mocha test.
-   @param {WebElement} [elem=] - Crop screenshot to contain just `elem`. If undefined, snap entire browser screen.
-   @param {Array<Array<Number>>} resolutions - List of two-part arrays containing browser resolutions to snap.
-   @returns {undefined}
-*/
-exports.snap = function (testContext, elem, resolutions) {
-    var flow = browser.controlFlow();
-    if (resolutions !== undefined) {
-        return browser.driver.manage().window().getSize().then(function (originalResolution) {
-            var originalWidth = originalResolution.width;
-            var originalHeight = originalResolution.height;
-            _.forEach(resolutions, function (resolution) {
-                var takeEachScreenshotFn = function () {
-                    var width = resolution[0];
-                    var height = resolution[1];
-                    browser.driver.manage().window().setSize(width, height);
-                    exports.snap(testContext, elem);
-                };
-                return flow.execute(takeEachScreenshotFn);
-            });
-            browser.driver.manage().window().setSize(originalWidth, originalHeight);
-            exports.snap(testContext, elem);
-        });
+// [[111, 222], [222, 333], [111, 222]] -> [[111, 222], [222, 333]]
+// This exists in case you pass in a resolution that is already in module.exports.defaultResolutions
+var uniqueResolutions = function (resolutions) {
+    if (resolutions === undefined) {
+        resolutions = [];
     }
+    var allResolutions = resolutions.concat(module.exports.defaultResolutions);
+    return _.unique(allResolutions, function (resolution) {
+        return resolution.join(' ');
+    });
+};
 
+var snapOne = function (testContext, elem) {
+    var flow = browser.controlFlow();
     var snapFn = function () {
         return getScreenshotNameFromContext(testContext).then(function (screenshotName) {
             return browser.takeScreenshot().then(function (screenshotData) {
@@ -201,4 +189,41 @@ exports.snap = function (testContext, elem, resolutions) {
         });
     };
     return flow.execute(snapFn);
+};
+
+/**
+   Calling this function with no `elem` will take a screenshot of the entire browser window.
+   @param {Object} testContext - The `this` object from the current mocha test.
+   @param {WebElement} [elem=] - Crop screenshot to contain just `elem`. If undefined, snap entire browser screen.
+   @param {Array<Array<Number>>} resolutions - List of two-part arrays containing browser resolutions to snap.
+   @returns {undefined}
+*/
+exports.snap = function (testContext, elem, resolutions) {
+    var flow = browser.controlFlow();
+    var allResolutions = uniqueResolutions(resolutions);
+    if (allResolutions.length) {
+        return browser.driver.manage().window().getSize().then(function (originalResolution) {
+            var originalWidth = originalResolution.width;
+            var originalHeight = originalResolution.height;
+            _.forEach(allResolutions, function (resolution) {
+                var takeEachScreenshotFn = function () {
+                    var width = resolution[0];
+                    var height = resolution[1];
+                    browser.driver.manage().window().setSize(width, height);
+                    snapOne(testContext, elem);
+                };
+                return flow.execute(takeEachScreenshotFn);
+            });
+            browser.driver.manage().window().setSize(originalWidth, originalHeight);
+            snapOne(testContext, elem);
+        });
+    } else {
+        snapOne(testContext, elem);
+    }
+};
+
+exports.configure = function (options) {
+    _.forEach(options, function (value, key) {
+        module.exports[key] = value;
+    });
 };
