@@ -1,6 +1,8 @@
 # snappit-mocha-protractor
 
-Many tools feature screenshot support, but default to full-page screenshots. This kills any sort of confidence in running visual regression tests, as the entire page can be filled with content that you don't care about. Much of that content often changes, as well. Why deal with all the noise of false postiives when you could be taking screenshots of just the things you care about?
+**Note**: This tool was built against Protractor version 2.0.0, and is known to not work with many 1.X.X versions.
+
+Many tools feature screenshot support, but default to full-page screenshots. This kills any sort of confidence in running visual regression tests, as the entire page can be filled with content that you don't care about. Much of that content often changes, as well. Why deal with all the noise of false positives when you could be taking screenshots of just the things you care about?
 
 Sure, there are libraries that support this. But they'll require that you build *yet another* suite of tests in a DSL that must spin up in it's own context, potentially doubling your test runs. Also, how can you interact with your screen and capture the visual content while doing things your customers will do?
 
