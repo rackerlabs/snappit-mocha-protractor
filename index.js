@@ -64,8 +64,9 @@ var getScreenshotNameFromContext = function (testContext) {
             var commonPath = _.takeWhile(path.resolve(__dirname).split('/'), function (directoryPart, index) {
                 return directoryPart === fullyQualifiedPath[index];
             }).join('/');
-            var relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '').replace(/\.js$/, '');
-            var rawName = path.join(screenshotDir, relativeFilePath, test.fullTitle, resolutionString);
+            var relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '');
+            var cleanPathName = relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-');
+            var rawName = path.join(screenshotDir, cleanPathName, test.fullTitle, resolutionString);
             return fileSystemFriendly(rawName);
         });
     });
