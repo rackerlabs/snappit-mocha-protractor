@@ -116,6 +116,11 @@ var saveImage = function (image, screenshotName, deferred) {
         };
         flow.execute(toBufferFn);
     } else {
+        if (module.exports.logWarnings) {
+            var newMessage = chalk.green.bold('New screenshot added:');
+            var shortName = chalk.red(path.basename(screenshotName));
+            console.log('%s %s', newMessage, shortName);
+        }
         return writeImage(image, screenshotName, deferred);
     }
 };
