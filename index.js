@@ -212,7 +212,7 @@ var snapOne = function (testContext, elem) {
    @param {Boolean} config.ignoreDefaultResolutions - Ignore using default resolutions for just one call.
    @returns {undefined}
 */
-exports.snap = function (testContext, elem, resolutions, options) {
+exports.snap = function (testContext, elem, options) {
     if (module.exports.disable) {
         return;
     }
@@ -222,11 +222,12 @@ exports.snap = function (testContext, elem, resolutions, options) {
     }
 
     options = _.defaults(options, {
+        resolutions: [],
         ignoreDefaultResolutions: false
     });
 
     var flow = browser.controlFlow();
-    var allResolutions = uniqueResolutions(resolutions, options.ignoreDefaultResolutions);
+    var allResolutions = uniqueResolutions(options.resolutions, options.ignoreDefaultResolutions);
     if (allResolutions.length) {
         return browser.driver.manage().window().getSize().then(function (originalResolution) {
             var originalWidth = originalResolution.width;
