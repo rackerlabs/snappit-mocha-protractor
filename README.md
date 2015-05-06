@@ -35,13 +35,18 @@ describe('Angular JS', function () {
     });
 
     it('should be on the right page', function () {
-        screenshot.snap(this, $('.center.stage-buttons'), [[1366, 768], [320, 568]]);
+        screenshot.snap(this, $('.center.stage-buttons'), {
+            resolutions: [[1366, 768], [320, 568]]
+        });
         expect(browser.getTitle()).to.eventually.contain('AngularJS');
     });
 
     it('should have a navigation section at the top', function () {
         var navbar = $('.navbar-inner .container');
-        screenshot.snap(this, navbar, [[320, 568], [568, 320]], { ignoreDefaultResolutions: true });
+        screenshot.snap(this, navbar, {
+            resolutions: [[320, 568], [568, 320]],
+            ignoreDefaultResolutions: true
+        });
         expect(navbar.isPresent()).to.eventually.be.true;
     });
 
@@ -86,7 +91,7 @@ describe('Angular JS', function () {
 The first call to `screenshot.snap` in the example above contains a list of width/height information. This will resize the screen, then take a screenshot of that element for each resolution passed in.
 
 ```js
-screenshot.snap(this, $('.center.stage-buttons'), [[768, 1024], [320, 568]]);
+screenshot.snap(this, $('.center.stage-buttons'), { resolutions: [[768, 1024], [320, 568]] });
 ```
 
 *768x1024*
