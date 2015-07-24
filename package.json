@@ -23,7 +23,7 @@
     "fs-extra": "^0.18.2",
     "lodash": "^3.7.0",
     "lwip": "0.0.7",
-    "node-resemble": "^1.1.3",
+    "node-resemble": "droogans/node-resemble#6b8f3d0",
     "zfill": "0.0.2"
   },
   "devDependencies": {
