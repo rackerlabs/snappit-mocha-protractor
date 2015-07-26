@@ -88,7 +88,7 @@ var writeImage = function (image, screenshotName, deferred) {
 };
 
 // compares the image before saving it, using `threshold` setting as a gate.
-var saveImage = function (image, screenshotName, deferred) {
+var saveImage = function (image, screenshotName, deferred, options) {
     var flow = browser.controlFlow();
     if (fs.existsSync(screenshotName)) {
         var toBufferFn = function () {
@@ -100,7 +100,7 @@ var saveImage = function (image, screenshotName, deferred) {
                 var comparisonFn = function () {
                     var comparison = resemble(imageBuffer).compareTo(screenshotName);
                     comparison.onComplete(function (data) {
-                        if (parseFloat(data.misMatchPercentage) > module.exports.threshold) {
+                        if (parseFloat(data.misMatchPercentage) > options.threshold) {
                             if (module.exports.logWarnings) {
                                 var percentage = chalk.yellow.bold(data.misMatchPercentage + '%');
                                 var shortName = chalk.red(path.basename(screenshotName));
@@ -125,7 +125,7 @@ var saveImage = function (image, screenshotName, deferred) {
     }
 };
 
-var cropAndSaveImage = function (image, elem, imageName, deferred) {
+var cropAndSaveImage = function (image, elem, imageName, deferred, options) {
     return elem.isPresent().then(function (present) {
         if (present) {
             var info = [elem.isDisplayed(), elem.getSize(), elem.getLocation()];
@@ -148,7 +148,7 @@ var cropAndSaveImage = function (image, elem, imageName, deferred) {
                             noScreenshot(elem, 'not displayed.', imageName);
                             return deferred.reject();
                         }
-                        return saveImage(image, imageName, deferred);
+                        return saveImage(image, imageName, deferred, options);
                     }
                 );
             });
@@ -176,7 +176,7 @@ var uniqueResolutions = function (resolutions, ignoreDefaultResolutions) {
     });
 };
 
-var snapOne = function (testContext, elem) {
+var snapOne = function (testContext, elem, options) {
     var flow = browser.controlFlow();
     var snapFn = function () {
         return getScreenshotNameFromContext(testContext).then(function (screenshotName) {
@@ -190,10 +190,10 @@ var snapOne = function (testContext, elem) {
                     if (elem === undefined) {
                         // without an `elem` to crop to, rename the file to be the full screenshot
                         var fullScreenName = screenshotName + '-full-screen.png';
-                        return saveImage(image, fullScreenName, deferred);
+                        return saveImage(image, fullScreenName, deferred, options);
                     } else {
                         var croppedName = [screenshotName, '-', elem.locator().toString() + '.png'].join('');
-                        return cropAndSaveImage(image, elem, croppedName, deferred);
+                        return cropAndSaveImage(image, elem, croppedName, deferred, options);
                     }
                 });
                 return deferred.promise;
@@ -223,7 +223,8 @@ exports.snap = function (testContext, elem, options) {
 
     options = _.defaults(options, {
         resolutions: [],
-        ignoreDefaultResolutions: false
+        ignoreDefaultResolutions: false,
+        threshold: module.exports.threshold
     });
 
     var flow = browser.controlFlow();
@@ -237,15 +238,15 @@ exports.snap = function (testContext, elem, options) {
                     var width = resolution[0];
                     var height = resolution[1];
                     browser.driver.manage().window().setSize(width, height);
-                    snapOne(testContext, elem);
+                    snapOne(testContext, elem, options);
                 };
                 return flow.execute(takeEachScreenshotFn);
             });
             browser.driver.manage().window().setSize(originalWidth, originalHeight);
-            snapOne(testContext, elem);
+            snapOne(testContext, elem, options);
         });
     } else {
-        snapOne(testContext, elem);
+        snapOne(testContext, elem, options);
     }
 };
 

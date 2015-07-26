@@ -14,7 +14,8 @@ describe('Angular JS', function () {
         var navbar = $('.navbar-inner .container');
         screenshot.snap(this, navbar, {
             resolutions: [[320, 568], [568, 320]],
-            ignoreDefaultResolutions: true
+            ignoreDefaultResolutions: true,
+            threshold: 101 // will never trigger a diff
         });
         expect(navbar.isPresent()).to.eventually.be.true;
     });
