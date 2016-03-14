@@ -5,7 +5,7 @@ var chalk = require('chalk');
 var fs = require('fs-extra');
 var lwip = require('lwip');
 var resemble = require('node-resemble');
-var zfill = require('zfill');
+var zfill = _.partialRight(_.padStart, '0');
 
 module.exports.logWarnings = true;
 module.exports.threshold = 4; // percent
@@ -171,7 +171,7 @@ var uniqueResolutions = function (resolutions, ignoreDefaultResolutions) {
         allResolutions = resolutions.concat(module.exports.defaultResolutions);
     }
 
-    return _.unique(allResolutions, function (resolution) {
+    return _.uniq(allResolutions, function (resolution) {
         return resolution.join(' ');
     });
 };
