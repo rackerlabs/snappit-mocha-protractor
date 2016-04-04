@@ -25,7 +25,6 @@ describe('Angular JS', function () {
         before(function () {
             var dropdown = $('.dropdown .icon-book');
             dropdown.click();
-            dropdown.click(); // strange defect, may not be relevant on future versions of selenium/protractor
             screenshot.snap(this, $('.dropdown.open .dropdown-menu'));
             element(by.cssContainingText('.dropdown.open a', 'Tutorial')).click();
         });
