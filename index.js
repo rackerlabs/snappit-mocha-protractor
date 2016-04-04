@@ -1,28 +1,30 @@
-var path = require('path');
+'use strict';
 
-var _ = require('lodash');
-var chalk = require('chalk');
-var fs = require('fs-extra');
-var lwip = require('lwip');
-var resemble = require('node-resemble');
-var zfill = _.partialRight(_.padStart, '0');
+let path = require('path');
+
+let _ = require('lodash');
+let chalk = require('chalk');
+let fs = require('fs-extra');
+let lwip = require('lwip');
+let resemble = require('node-resemble');
+let zfill = _.partialRight(_.padStart, '0');
 
 module.exports.logWarnings = true;
 module.exports.threshold = 4; // percent
 module.exports.defaultResolutions = [];
 module.exports.disable = false;
 
-var noScreenshot = (element, reason, fileName) => {
+let noScreenshot = (element, reason, fileName) => {
     if (module.exports.logWarnings) {
         console.log('Error: element', element.locator().toString(), reason, 'No screenshot taken.');
     }
 };
 
-var fileSystemFriendly = fileName => {
+let fileSystemFriendly = fileName => {
     return fileName.replace(/([!.,+?<>:*|"])/g, '').replace(/\s+/g, '-');
 };
 
-var buildFullNameFromParents = (testInformation, acc) => {
+let buildFullNameFromParents = (testInformation, acc) => {
     if (acc === undefined) {
         acc = [];
     }
@@ -36,10 +38,10 @@ var buildFullNameFromParents = (testInformation, acc) => {
 };
 
 // catch odd cases around `before`, `after`, etc.
-var handleMochaHooks = testContext => {
-    var fullTitle;
-    var file;
-    var testInformation = testContext.test || testContext.currentTest;
+let handleMochaHooks = testContext => {
+    let fullTitle;
+    let file;
+    let testInformation = testContext.test || testContext.currentTest;
     if (testContext.test.type === 'hook') {
         fullTitle = [buildFullNameFromParents(testInformation), '-', testInformation.title].join('');
         file = testInformation.parent.file;
@@ -53,28 +55,28 @@ var handleMochaHooks = testContext => {
     };
 };
 
-var getScreenshotNameFromContext = testContext => {
+let getScreenshotNameFromContext = testContext => {
     return browser.getCapabilities().then(capabilities => {
         return browser.driver.manage().window().getSize().then(resolution => {
-            var resolutionString = [zfill(resolution.width, 4), zfill(resolution.height, 4)].join('x');
-            var browserName = capabilities.caps_.browserName;
-            var screenshotDir = path.join('screenshots', browserName);
-            var test = handleMochaHooks(testContext);
-            var fullyQualifiedPath = test.file.split('/');
-            var commonPath = _.takeWhile(path.resolve(__dirname).split('/'), (directoryPart, index) => {
+            let resolutionString = [zfill(resolution.width, 4), zfill(resolution.height, 4)].join('x');
+            let browserName = capabilities.caps_.browserName;
+            let screenshotDir = path.join('screenshots', browserName);
+            let test = handleMochaHooks(testContext);
+            let fullyQualifiedPath = test.file.split('/');
+            let commonPath = _.takeWhile(path.resolve(__dirname).split('/'), (directoryPart, index) => {
                 return directoryPart === fullyQualifiedPath[index];
             }).join('/');
-            var relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '');
-            var cleanPathName = relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-');
-            var rawName = path.join(screenshotDir, cleanPathName, test.fullTitle, resolutionString);
+            let relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '');
+            let cleanPathName = relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-');
+            let rawName = path.join(screenshotDir, cleanPathName, test.fullTitle, resolutionString);
             return fileSystemFriendly(rawName);
         });
     });
 };
 
-var writeImage = (image, screenshotName, deferred) => {
-    var flow = browser.controlFlow();
-    var writeFileFn = () => {
+let writeImage = (image, screenshotName, deferred) => {
+    let flow = browser.controlFlow();
+    let writeFileFn = () => {
         fs.mkdirsSync(path.dirname(screenshotName));
         image.writeFile(screenshotName, err => {
             if (err) {
@@ -88,22 +90,22 @@ var writeImage = (image, screenshotName, deferred) => {
 };
 
 // compares the image before saving it, using `threshold` setting as a gate.
-var saveImage = (image, screenshotName, deferred, options) => {
-    var flow = browser.controlFlow();
+let saveImage = (image, screenshotName, deferred, options) => {
+    let flow = browser.controlFlow();
     if (fs.existsSync(screenshotName)) {
-        var toBufferFn = () => {
+        let toBufferFn = () => {
             image.toBuffer('png', { compression: 'none' }, (err, imageBuffer) => {
                 if (err) {
                     console.log('Error creating comparison image buffer', err);
                     deferred.reject();
                 }
-                var comparisonFn = () => {
-                    var comparison = resemble(imageBuffer).compareTo(screenshotName);
+                let comparisonFn = () => {
+                    let comparison = resemble(imageBuffer).compareTo(screenshotName);
                     comparison.onComplete(data => {
                         if (parseFloat(data.misMatchPercentage) > options.threshold) {
                             if (module.exports.logWarnings) {
-                                var percentage = chalk.yellow.bold(data.misMatchPercentage + '%');
-                                var shortName = chalk.red(path.basename(screenshotName));
+                                let percentage = chalk.yellow.bold(data.misMatchPercentage + '%');
+                                let shortName = chalk.red(path.basename(screenshotName));
                                 console.log('%s difference in screenshot %s', percentage, shortName);
                             }
                             return writeImage(image, screenshotName, deferred);
@@ -117,22 +119,22 @@ var saveImage = (image, screenshotName, deferred, options) => {
         flow.execute(toBufferFn);
     } else {
         if (module.exports.logWarnings) {
-            var newMessage = chalk.green.bold('New screenshot added:');
-            var shortName = chalk.red(path.basename(screenshotName));
+            let newMessage = chalk.green.bold('New screenshot added:');
+            let shortName = chalk.red(path.basename(screenshotName));
             console.log('%s %s', newMessage, shortName);
         }
         return writeImage(image, screenshotName, deferred);
     }
 };
 
-var cropAndSaveImage = (image, elem, imageName, deferred, options) => {
+let cropAndSaveImage = (image, elem, imageName, deferred, options) => {
     return elem.isPresent().then(present => {
         if (present) {
-            var info = [elem.isDisplayed(), elem.getSize(), elem.getLocation()];
+            let info = [elem.isDisplayed(), elem.getSize(), elem.getLocation()];
             return protractor.promise.all(info).then(info => {
-                var displayed = info[0];
-                var size = info[1];
-                var location = info[2];
+                let displayed = info[0];
+                let size = info[1];
+                let location = info[2];
                 image.crop(
                     location.x, // left
                     location.y, // top
@@ -161,12 +163,12 @@ var cropAndSaveImage = (image, elem, imageName, deferred, options) => {
 
 // [[111, 222], [222, 333], [111, 222]] -> [[111, 222], [222, 333]]
 // This exists in case you pass in a resolution that is already in module.exports.defaultResolutions
-var uniqueResolutions = (resolutions, ignoreDefaultResolutions) => {
+let uniqueResolutions = (resolutions, ignoreDefaultResolutions) => {
     if (resolutions === undefined) {
         resolutions = [];
     }
 
-    var allResolutions = resolutions;
+    let allResolutions = resolutions;
     if (ignoreDefaultResolutions === false) {
         allResolutions = resolutions.concat(module.exports.defaultResolutions);
     }
@@ -176,12 +178,12 @@ var uniqueResolutions = (resolutions, ignoreDefaultResolutions) => {
     });
 };
 
-var snapOne = (testContext, elem, options) => {
-    var flow = browser.controlFlow();
-    var snapFn = () => {
+let snapOne = (testContext, elem, options) => {
+    let flow = browser.controlFlow();
+    let snapFn = () => {
         return getScreenshotNameFromContext(testContext).then(screenshotName => {
             return browser.takeScreenshot().then(screenshotData => {
-                var deferred = protractor.promise.defer();
+                let deferred = protractor.promise.defer();
                 lwip.open(new Buffer(screenshotData, 'base64'), 'png', (err, image) => {
                     if (err) {
                         console.log('Error opening screenshot:', err);
@@ -189,10 +191,10 @@ var snapOne = (testContext, elem, options) => {
                     }
                     if (elem === undefined) {
                         // without an `elem` to crop to, rename the file to be the full screenshot
-                        var fullScreenName = screenshotName + '-full-screen.png';
+                        let fullScreenName = screenshotName + '-full-screen.png';
                         return saveImage(image, fullScreenName, deferred, options);
                     } else {
-                        var croppedName = [screenshotName, '-', elem.locator().toString() + '.png'].join('');
+                        let croppedName = [screenshotName, '-', elem.locator().toString() + '.png'].join('');
                         return cropAndSaveImage(image, elem, croppedName, deferred, options);
                     }
                 });
@@ -227,16 +229,16 @@ exports.snap = (testContext, elem, options) => {
         threshold: module.exports.threshold
     });
 
-    var flow = browser.controlFlow();
-    var allResolutions = uniqueResolutions(options.resolutions, options.ignoreDefaultResolutions);
+    let flow = browser.controlFlow();
+    let allResolutions = uniqueResolutions(options.resolutions, options.ignoreDefaultResolutions);
     if (allResolutions.length) {
         return browser.driver.manage().window().getSize().then(originalResolution => {
-            var originalWidth = originalResolution.width;
-            var originalHeight = originalResolution.height;
+            let originalWidth = originalResolution.width;
+            let originalHeight = originalResolution.height;
             _.forEach(allResolutions, resolution => {
-                var takeEachScreenshotFn = () => {
-                    var width = resolution[0];
-                    var height = resolution[1];
+                let takeEachScreenshotFn = () => {
+                    let width = resolution[0];
+                    let height = resolution[1];
                     browser.driver.manage().window().setSize(width, height);
                     snapOne(testContext, elem, options);
                 };
