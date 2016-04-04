@@ -43,7 +43,7 @@ let handleMochaHooks = testContext => {
     let file;
     let testInformation = testContext.test || testContext.currentTest;
     if (testContext.test.type === 'hook') {
-        fullTitle = [buildFullNameFromParents(testInformation), '-', testInformation.title].join('');
+        fullTitle = `${buildFullNameFromParents(testInformation)}-${testInformation.title}`;
         file = testInformation.parent.file;
     } else {
         fullTitle = testInformation.fullTitle();
@@ -58,7 +58,7 @@ let handleMochaHooks = testContext => {
 let getScreenshotNameFromContext = testContext => {
     return browser.getCapabilities().then(capabilities => {
         return browser.driver.manage().window().getSize().then(resolution => {
-            let resolutionString = [zfill(resolution.width, 4), zfill(resolution.height, 4)].join('x');
+            let resolutionString = `${zfill(resolution.width, 4)}x${zfill(resolution.height, 4)}`;
             let browserName = capabilities.caps_.browserName;
             let screenshotDir = path.join('screenshots', browserName);
             let test = handleMochaHooks(testContext);
@@ -194,7 +194,7 @@ let snapOne = (testContext, elem, options) => {
                         let fullScreenName = screenshotName + '-full-screen.png';
                         return saveImage(image, fullScreenName, deferred, options);
                     } else {
-                        let croppedName = [screenshotName, '-', elem.locator().toString() + '.png'].join('');
+                        let croppedName = `${screenshotName}-${elem.locator().toString()}.png`;
                         return cropAndSaveImage(image, elem, croppedName, deferred, options);
                     }
                 });
@@ -206,14 +206,14 @@ let snapOne = (testContext, elem, options) => {
 };
 
 /**
-   Calling this function with no `elem` will take a screenshot of the entire browser window.
-   @param {Object} testContext - The `this` object from the current mocha test.
-   @param {WebElement} [elem=] - Crop screenshot to contain just `elem`. If undefined, snap entire browser screen.
-   @param {Array<Array<Number>>} resolutions - List of two-part arrays containing browser resolutions to snap.
-   @param {Object} config - Options to be used for just this call.
-   @param {Boolean} config.ignoreDefaultResolutions - Ignore using default resolutions for just one call.
-   @returns {undefined}
-*/
+ * Calling this function with no `elem` will take a screenshot of the entire browser window.
+ * @param {Object} testContext - The `this` object from the current mocha test.
+ * @param {ElementFinder} [elem=] - Crop screenshot to contain just `elem`. If undefined, snap entire browser screen.
+ * @param {Array<Array<Number>>} resolutions - List of two-part arrays containing browser resolutions to snap.
+ * @param {Object} config - Options to be used for just this call.
+ * @param {Boolean} config.ignoreDefaultResolutions - Ignore using default resolutions for just one call.
+ * @returns {undefined}
+ */
 exports.snap = (testContext, elem, options) => {
     if (module.exports.disable) {
         return;
