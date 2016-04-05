@@ -3,7 +3,9 @@
   "version": "0.0.7",
   "description": "Take screenshots of just a section of your screen in Protractor tests. For Mocha.",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+      "test": "mocha"
+  },
   "keywords": [
     "testing",
     "screenshots",

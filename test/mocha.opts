@@ -1,0 +1,2 @@
+--require ./test/setupExpect
+test/unit.js
