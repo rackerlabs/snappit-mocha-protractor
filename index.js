@@ -182,7 +182,7 @@ exports.snap = (testContext, elem, options) => {
     let flow = browser.controlFlow();
 
     let defaultResolutions = options.ignoreDefaultResolutions ? [] : module.exports.defaultResolutions;
-    let allResolutions = util.uniqueResolutions(options.resolutions, defaultResolutions);
+    let allResolutions = _.uniqWith([...options.resolutions, ...defaultResolutions], _.isEqual);
 
     if (allResolutions.length) {
         return browser.driver.manage().window().getSize().then(originalResolution => {
