@@ -26,7 +26,7 @@ let getScreenshotNameFromContext = testContext => {
     return browser.getCapabilities().then(capabilities => {
         return browser.driver.manage().window().getSize().then(resolution => {
             let resolutionString = `${zfill(resolution.width, 4)}x${zfill(resolution.height, 4)}`;
-            let browserName = capabilities.caps_.browserName;
+            let browserName = capabilities.get('browserName');
             let screenshotDir = path.join('screenshots', browserName);
             let test = util.handleMochaHooks(testContext);
             let fullyQualifiedPath = test.file.split('/');
@@ -192,7 +192,6 @@ exports.snap = (testContext, elem, options) => {
                 let takeEachScreenshotFn = () => {
                     let width = resolution[0];
                     let height = resolution[1];
-                    debugger;
                     browser.driver.manage().window().setSize(width, height);
                     snapOne(testContext, elem, options);
                 };
