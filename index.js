@@ -9,6 +9,8 @@ let lwip = require('lwip');
 let resemble = require('node-resemble');
 let zfill = _.partialRight(_.padStart, '0');
 
+let util = require('./lib/util');
+
 module.exports.logWarnings = true;
 module.exports.threshold = 4; // percent
 module.exports.defaultResolutions = [];
@@ -20,48 +22,13 @@ let noScreenshot = (element, reason, fileName) => {
     }
 };
 
-let fileSystemFriendly = fileName => {
-    return fileName.replace(/([!.,+?<>:*|"])/g, '').replace(/\s+/g, '-');
-};
-
-let buildFullNameFromParents = (testInformation, acc) => {
-    if (acc === undefined) {
-        acc = [];
-    }
-    if (testInformation.parent) {
-        acc.push(testInformation.parent.title);
-        return buildFullNameFromParents(testInformation.parent, acc);
-    } else {
-        acc.pop();
-        return acc.reverse().join(' ');
-    }
-};
-
-// catch odd cases around `before`, `after`, etc.
-let handleMochaHooks = testContext => {
-    let fullTitle;
-    let file;
-    let testInformation = testContext.test || testContext.currentTest;
-    if (testContext.test.type === 'hook') {
-        fullTitle = `${buildFullNameFromParents(testInformation)}-${testInformation.title}`;
-        file = testInformation.parent.file;
-    } else {
-        fullTitle = testInformation.fullTitle();
-        file = testInformation.file;
-    }
-    return {
-        fullTitle: fullTitle,
-        file: file
-    };
-};
-
 let getScreenshotNameFromContext = testContext => {
     return browser.getCapabilities().then(capabilities => {
         return browser.driver.manage().window().getSize().then(resolution => {
             let resolutionString = `${zfill(resolution.width, 4)}x${zfill(resolution.height, 4)}`;
             let browserName = capabilities.caps_.browserName;
             let screenshotDir = path.join('screenshots', browserName);
-            let test = handleMochaHooks(testContext);
+            let test = util.handleMochaHooks(testContext);
             let fullyQualifiedPath = test.file.split('/');
             let commonPath = _.takeWhile(path.resolve(__dirname).split('/'), (directoryPart, index) => {
                 return directoryPart === fullyQualifiedPath[index];
@@ -69,7 +36,7 @@ let getScreenshotNameFromContext = testContext => {
             let relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '');
             let cleanPathName = relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-');
             let rawName = path.join(screenshotDir, cleanPathName, test.fullTitle, resolutionString);
-            return fileSystemFriendly(rawName);
+            return util.fileSystemFriendly(rawName);
         });
     });
 };
@@ -161,23 +128,6 @@ let cropAndSaveImage = (image, elem, imageName, deferred, options) => {
     });
 };
 
-// [[111, 222], [222, 333], [111, 222]] -> [[111, 222], [222, 333]]
-// This exists in case you pass in a resolution that is already in module.exports.defaultResolutions
-let uniqueResolutions = (resolutions, ignoreDefaultResolutions) => {
-    if (resolutions === undefined) {
-        resolutions = [];
-    }
-
-    let allResolutions = resolutions;
-    if (ignoreDefaultResolutions === false) {
-        allResolutions = resolutions.concat(module.exports.defaultResolutions);
-    }
-
-    return _.uniq(allResolutions, resolution => {
-        return resolution.join(' ');
-    });
-};
-
 let snapOne = (testContext, elem, options) => {
     let flow = browser.controlFlow();
     let snapFn = () => {
@@ -230,7 +180,10 @@ exports.snap = (testContext, elem, options) => {
     });
 
     let flow = browser.controlFlow();
-    let allResolutions = uniqueResolutions(options.resolutions, options.ignoreDefaultResolutions);
+
+    let defaultResolutions = options.ignoreDefaultResolutions ? [] : module.exports.defaultResolutions;
+    let allResolutions = _.uniqWith([...options.resolutions, ...defaultResolutions], _.isEqual);
+
     if (allResolutions.length) {
         return browser.driver.manage().window().getSize().then(originalResolution => {
             let originalWidth = originalResolution.width;
@@ -239,6 +192,7 @@ exports.snap = (testContext, elem, options) => {
                 let takeEachScreenshotFn = () => {
                     let width = resolution[0];
                     let height = resolution[1];
+                    debugger;
                     browser.driver.manage().window().setSize(width, height);
                     snapOne(testContext, elem, options);
                 };
