@@ -1,6 +1,8 @@
-# snappit-mocha-protractor
+**Note**: This tool was built against Protractor version > 3.2.2, and is known to not work with 1.X, 2.X, or < 3.2 versions. This is due to a change in the webdriver-js library that supports Protractor. If you are using an older version of Protractor, try using a version from before the 0.1.0 release.
 
-**Note**: This tool was built against Protractor version 2.0.0, and is known to not work with many 1.X.X versions.
+**Note**: If you are migrating to the 0.1.0 release, you will need to delete your screenshots and re-run the tool, as webdriver-js has changed the way that it represents selectors as a string (this affects the resulting filename of the screenshot). Otherwise you'll end up with identical screenshots with different names. It's better to start over than leave them hanging around.
+
+# snappit-mocha-protractor
 
 Many tools feature screenshot support, but default to full-page screenshots. This kills any sort of confidence in running visual regression tests, as the entire page can be filled with content that you don't care about. Much of that content often changes, as well. Why deal with all the noise of false positives when you could be taking screenshots of just the things you care about?
 
@@ -96,19 +98,19 @@ screenshot.snap(this, $('.center.stage-buttons'), { resolutions: [[768, 1024], [
 
 *768x1024*
 
-![Tablet sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0768x1024-By.cssSelector(".center.stage-buttons").png)
+![Tablet sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0768x1024-By(css selector, .center.stage-buttons).png)
 
 *320x568*
 
-![Mobile sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0335x0568-By.cssSelector(".center.stage-buttons").png)
+![Mobile sized screenshot](./screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0335x0568-By(css selector, .center.stage-buttons).png)
 
 Finally, we return to the default screen size from the other tests, and take one last screenshot.
 
 *1366x768*
 
-![Original sized screenshot](screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1366x0768-By.cssSelector(".center.stage-buttons").png)
+![Original sized screenshot](screenshots/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1366x0768-By(css selector, .center.stage-buttons).png)
 
-**Note**: Chrome can only support widths as low as 400px. Firefox can only go as low as 355px.
+**Note**: Chrome can only support widths as low as 400px. Firefox can only go as low as 335px.
 
 If you find yourself needing to take a picture at several resolutions many times, then look into configuring `screenshot` to automatically take those at every call to `screenshot.snap`.
 
@@ -145,11 +147,11 @@ If your element isn't visible when `screenshot.snap` is called, depending on you
 
 Firefox's unrendered areas are unpainted, but drawn with an interesting monochromatic scheme.
 
-![Unrendered area in a Firefox screenshot](./screenshots/firefox/test/spec/Angular-JS-should-have-a-navigation-section-at-the-top/0335x0568-By.cssSelector(".navbar-inner .container").png)
+![Unrendered area in a Firefox screenshot](./screenshots/firefox/test/spec/Angular-JS-should-have-a-navigation-section-at-the-top/0335x0568-By(css selector, .navbar-inner .container).png)
 
 Chrome's unrendered areas are completely blacked out.
 
-![Unrendered area in a Chrome screenshot](./screenshots/chrome/test/spec/Angular-JS-should-have-a-navigation-section-at-the-top/0400x0568-By.cssSelector(".navbar-inner .container").png)
+![Unrendered area in a Chrome screenshot](./screenshots/chrome/test/spec/Angular-JS-should-have-a-navigation-section-at-the-top/0400x0568-By(css selector, .navbar-inner .container).png)
 
 ## A word about full size screenshots
 
