@@ -1,6 +1,8 @@
 # snappit-mocha-protractor
 
-**Note**: This tool was built against Protractor version 2.0.0, and is known to not work with many 1.X.X versions.
+**Note**: This tool was built against Protractor version > 3.2.2, and is known to not work with 1.X, 2.X, or < 3.2 versions. This is due to a change in the webdriver-js library that supports Protractor. If you are using an older version of Protractor, try the pre-0.1.0 releases.
+
+**Note**: If you are migrating to the 0.1.0 release, you will need to delete your screenshots and re-run the tool, as webdriver-js has changed the way that it represents selectors as a string (this affects the resulting filename of the screenshot). Otherwise you'll end up with identical screenshots with different names. It's better to start over than leave them hanging around.
 
 Many tools feature screenshot support, but default to full-page screenshots. This kills any sort of confidence in running visual regression tests, as the entire page can be filled with content that you don't care about. Much of that content often changes, as well. Why deal with all the noise of false positives when you could be taking screenshots of just the things you care about?
 
