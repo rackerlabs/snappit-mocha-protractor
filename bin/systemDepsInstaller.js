@@ -76,10 +76,10 @@ exports.downloadDeps = () => {
         throw new Error(needsSudoError(installerName, installer));
     }
 
-    return child_process.execSync(`${installer.command}`).toString('utf-8');
+    child_process.execSync(`${installer.command}`, { stdio: [0,1,2] });
 
 };
 
 if (require.main === module) {
-    console.log(exports.downloadDeps());
+    exports.downloadDeps();
 }
