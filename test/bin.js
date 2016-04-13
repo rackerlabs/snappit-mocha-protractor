@@ -102,7 +102,9 @@ describe('systemDepsInstaller', function () {
             });
 
             it('should have run the install command', function () {
-                expect(depsInstaller.downloadDeps()).to.equal('test\n');
+                let bufferOutput = true;
+                let installProcess = depsInstaller.downloadDeps(bufferOutput);
+                expect(installProcess.toString('utf-8')).to.equal('test\n');
             });
         });
 

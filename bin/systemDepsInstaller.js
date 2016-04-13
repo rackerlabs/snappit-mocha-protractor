@@ -55,7 +55,7 @@ let detectPackageManager = () => {
     return _.first(_.compact(installedPackageManagers));
 };
 
-exports.downloadDeps = () => {
+exports.downloadDeps = (bufferOutput) => {
 
     if (exports.isWindows()) {
         throw new Error(windowsUninstallableWarning);
@@ -76,7 +76,11 @@ exports.downloadDeps = () => {
         throw new Error(needsSudoError(installerName, installer));
     }
 
-    child_process.execSync(`${installer.command}`, { stdio: [0,1,2] });
+    // we want to stream output almost all the time, unless we're writing
+    // unit tests, then we want the output of the command returned as a
+    // string so we can verify what's going on here.
+    let opts = !bufferOutput ? { stdio: [0, 1, 2] } : {};
+    return child_process.execSync(`${installer.command}`, opts);
 
 };
 
