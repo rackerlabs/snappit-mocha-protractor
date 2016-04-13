@@ -20,10 +20,10 @@ Brew was not detected! Download and install "brew" before running this command.
 See http://brew.sh/ for more information.
 `;
 
-let noInstallerAvailableMessage = `
-You do not have one of the following supported installers available: ${_.keys(module.exports.installCommands).join(', ')}
+let noInstallerAvailableMessage = installCommands => { return `
+You do not have one of the following supported installers available: ${_.keys(installCommands).join(', ')}
 Please refer to https://github.com/Automattic/node-canvas#installation for more information on setting up dependencies
-`;
+` };
 
 let needsSudoError = (installerName, installer) => { `
 Using ${installerName} to install image manipulation dependencies requires root.
@@ -33,11 +33,13 @@ sudo ${installer.command}
 `; };
 
 describe('systemDepsInstaller', function () {
-    var oldRegexes;
+    var oldRegexes = {
+        isWindowsRegex: depsInstaller.isWindowsRegex,
+        isMacRegex: depsInstaller.isMacRegex
+    };
 
     describe('windows', function () {
         before(function () {
-            oldRegexes = { isWindowsRegex: depsInstaller.isWindowsRegex, isMacRegex: depsInstaller.isMacRegex };
             depsInstaller.isWindowsRegex = /.*/;
             depsInstaller.isMacRegex = /foobar/;
         });
@@ -61,7 +63,6 @@ describe('systemDepsInstaller', function () {
         let brew;
 
         before(function () {
-            oldRegexes = { isWindowsRegex: depsInstaller.isWindowsRegex, isMacRegex: depsInstaller.isMacRegex };
             depsInstaller.isMacRegex = /.*/;
             depsInstaller.isWindowsRegex = /foobar/;
 
@@ -84,6 +85,55 @@ describe('systemDepsInstaller', function () {
             depsInstaller.installCommands.brew = brew;
             delete depsInstaller.installCommands.notBrew;
             restoreRegexes(oldRegexes);
+        });
+    });
+
+    describe('others', function () {
+
+        describe('success', function () {
+            before(function () {
+                depsInstaller.installCommands = {
+                    echo: { command: 'echo test', sudo: false }
+                };
+            });
+
+            it('should not throw an error', function () {
+                expect(depsInstaller.downloadDeps).to.not.throw(Error);
+            });
+
+            it('should have run the install command', function () {
+                expect(depsInstaller.downloadDeps()).to.equal('test\n');
+            });
+        });
+
+        describe('failure', function () {
+
+            describe('missing downloader', function () {
+                before(function () {
+                    depsInstaller.isMacRegex = /foobar/;
+                    depsInstaller.isWindowsRegex = /foobar/;
+                    depsInstaller.installCommands = {
+                        foobar: { command: 'echo test', sudo: false }
+                    };
+                });
+
+                it('should complain that no installer was found', function () {
+                    let msg = noInstallerAvailableMessage(depsInstaller.installCommands);
+                    expect(depsInstaller.downloadDeps).to.throw(msg);
+                });
+            });
+
+            describe('missing sudo', function () {
+                before(function () {
+                    depsInstaller.installCommands = {
+                        echo: { command: 'echo test', sudo: true }
+                    };
+                });
+
+                it('should complain that sudo is needed', function () {
+                    expect(depsInstaller.downloadDeps).to.throw(needsSudoError('echo', 'echo test'));
+                });
+            });
         });
     });
 });

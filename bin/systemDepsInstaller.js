@@ -31,10 +31,10 @@ Brew was not detected! Download and install "brew" before running this command.
 See http://brew.sh/ for more information.
 `;
 
-let noInstallerAvailableMessage = `
-You do not have one of the following supported installers available: ${_.keys(module.exports.installCommands).join(', ')}
+let noInstallerAvailableMessage = installCommands => { return `
+You do not have one of the following supported installers available: ${_.keys(installCommands).join(', ')}
 Please refer to https://github.com/Automattic/node-canvas#installation for more information on setting up dependencies
-`;
+` };
 
 let needsSudoError = (installerName, installer) => { `
 Using ${installerName} to install image manipulation dependencies requires root.
@@ -68,7 +68,7 @@ exports.downloadDeps = () => {
             throw new Error(brewNotAvailableWarning);
         }
 
-        throw new Error(noInstallerAvailableMessage);
+        throw new Error(noInstallerAvailableMessage(module.exports.installCommands));
     }
 
     let isSudo = process.getuid() === 0;
