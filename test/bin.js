@@ -60,15 +60,14 @@ describe('systemDepsInstaller', function () {
     });
 
     describe('mac', function () {
-        let brew;
+        let installCommands;
 
         before(function () {
             depsInstaller.isMacRegex = /.*/;
             depsInstaller.isWindowsRegex = /foobar/;
 
-            brew = _.cloneDeep(depsInstaller.installCommands.brew);
-            depsInstaller.installCommands.notBrew = brew;
-            delete depsInstaller.installCommands.brew;
+            installCommands = _.cloneDeep(depsInstaller.installCommands);
+            depsInstaller.installCommands = { notBrew: { command: 'echo foobar', sudo: false }};
         });
 
         it('should report that it is a mac install', function () {
@@ -77,13 +76,11 @@ describe('systemDepsInstaller', function () {
         });
 
         it('should report a warning if brew is not available', function () {
-            expect(depsInstaller.downloadDeps).to.throw(Error);
             expect(depsInstaller.downloadDeps).to.throw(brewNotAvailableWarning);
         });
 
         after(function () {
-            depsInstaller.installCommands.brew = brew;
-            delete depsInstaller.installCommands.notBrew;
+            depsInstaller.installCommands = installCommands;
             restoreRegexes(oldRegexes);
         });
     });
