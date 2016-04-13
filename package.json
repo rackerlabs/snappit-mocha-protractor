@@ -9,6 +9,9 @@
   "scripts": {
     "test": "mocha"
   },
+  "bin": {
+    "snappit-system-deps-install": "./bin/systemDepsInstaller.js"
+  },
   "keywords": [
     "testing",
     "screenshots",
