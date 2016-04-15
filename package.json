@@ -10,7 +10,9 @@
     "test": "mocha"
   },
   "bin": {
-    "snappit-system-deps-install": "./bin/systemDepsInstaller.js"
+    "snappit-system-deps-install": "./bin/systemDepsInstaller.js",
+    "snappit-clone": "./bin/clone.js",
+    "snappit-pull-request": "./bin/pullRequest.js"
   },
   "keywords": [
     "testing",
