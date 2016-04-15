@@ -8,15 +8,16 @@ exports.config = {
         './spec.js'
     ],
 
+    snappit: {
+        disable: true
+    },
+
     onPrepare: function () {
         var chai = require('chai').use(require('chai-as-promised'));
         chai.config.truncateThreshold = 0;
         expect = chai.expect;
         browser.driver.manage().window().setSize(1366, 768); // laptop
         screenshot = require('../index');
-        screenshot.configure({
-            disable: true
-        });
     },
 
     capabilities: {
