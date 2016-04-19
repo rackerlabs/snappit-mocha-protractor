@@ -11,10 +11,28 @@ let zfill = _.partialRight(_.padStart, '0');
 
 let util = require('./lib/util');
 
-module.exports.logWarnings = true;
-module.exports.threshold = 4; // percent
-module.exports.defaultResolutions = [];
-module.exports.disable = false;
+exports.configure = options => {
+    _.forEach(options, (value, key) => {
+        module.exports[key] = value;
+    });
+};
+
+browser.getProcessedConfig().then(function (config) {
+    let options = config.snappit;
+    exports.configure(_.defaults({
+        screenshotsDirectory: options.screenshotsDirectory,
+        threshold: options.threshold,
+        disable: options.disable,
+        logWarnings: options.logWarnings,
+        defaultResolutions: options.defaultResolutions
+    }, {
+        screenshotsDirectory: './screenshots',
+        threshold: 4, // percent
+        disable: false,
+        logWarnings: true,
+        defaultResolutions: []
+    }));
+});
 
 let noScreenshot = (element, reason, fileName) => {
     if (module.exports.logWarnings) {
@@ -27,7 +45,7 @@ let getScreenshotNameFromContext = testContext => {
         return browser.driver.manage().window().getSize().then(resolution => {
             let resolutionString = `${zfill(resolution.width, 4)}x${zfill(resolution.height, 4)}`;
             let browserName = capabilities.get('browserName');
-            let screenshotDir = path.join('screenshots', browserName);
+            let screenshotDir = path.join(module.exports.screenshotsDirectory, browserName);
             let test = util.handleMochaHooks(testContext);
             let fullyQualifiedPath = test.file.split('/');
             let commonPath = _.takeWhile(path.resolve(__dirname).split('/'), (directoryPart, index) => {
@@ -203,10 +221,4 @@ exports.snap = (testContext, elem, options) => {
     } else {
         snapOne(testContext, elem, options);
     }
-};
-
-exports.configure = options => {
-    _.forEach(options, (value, key) => {
-        module.exports[key] = value;
-    });
 };
