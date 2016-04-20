@@ -12,22 +12,98 @@ var _ = require('lodash');
 let args = process.argv.slice(2);
 let action = args[1];
 
+let cloneDescription = `
+Sets up and clones the screenshots repository into the main project repository.
+This includes creating the screenshots repo first, if it does not exist.
+It will then create a fork of this screenshots repository, if that does not exist.
+Finally, it clones the screenshots repository (as a submodule) into the directory set in 'config.snappit.cicd.screenshotsDirectory'.
+Run this command before you have run your visual regression test using protractor.
+`;
+
+let commitDescription = `
+Commit all changed screenshots to the submodule on the branch name specified in 'config.snappit.cicd.messages.branchName'.
+Will use the commit message format specified in the config entry for 'config.snappit.cicd.messages.commitMessage'.
+Run this command after you have run your visual regression test using protractor.
+`;
+
+let pushDescription = `
+Push up the changes introduced in the "commit" step, on the branch specified in 'config.snappit.cicd.messages.branchName'.
+The changes are pushed to the fork of the screenshots repository.
+`;
+
+let prDescription = `
+Create a pull request against the target branch of the screenshots repository, specified in 'config.snappit.cicd.targetBranch'.
+The pull request originates from the fork that the service account created in the "clone" step.
+The pull request title is configurable from the 'config.snappit.cicd.messages.pullRequestTitle' entry.
+The pull request body is configurable from the 'config.snappit.cicd.messages.pullRequestBody' entry.
+`;
+
 let actions = {
-    clone: 'Clone the repository',
-    commit: 'Commit screenshots',
-    push: 'Push up visual changes to github',
-    pr: 'Create a pull request'
+    clone: {
+        description: cloneDescription,
+        fn: () => {
+            if (!repositoryExists(projectRepo)) {
+                throw new Error(`Main project repo ${projectRepo.url} does not exist!`);
+            }
+
+            let repoAction = new Promise.resolve(`Repository ${screenshotsRepo.url} already exists.`);
+            if (!repositoryExists(screenshotsRepo)) {
+                console.log(`Screenshots repository ${screenshotsRepo.url} not found. Creating...`);
+                repoAction = createRepository(screenshotsRepo).then(function () {
+                    return `Created a new screenshots repository at ${screenshotsRepo.url}`;
+                });
+            }
+
+            // will either create a repo (if it doesn't exist), or return a message stating that it does exist
+            return repoAction.then(function (message) {
+                console.log(message);
+                let user = config.snappit.cicd.userAccount.userName;
+                let repoName = _.last(repoUrl.path.split('/'));
+                let forkedRepo = `https://${screenshotsRepo.hostname}/${user}/${repoName}`;
+                return forkRepository(screenshotsRepo).then(function () {
+                    do {
+                        setTimeout(() => console.log(`Waiting on forked repository ${forkedRepo} to appear...`), 3000);
+                    } while (!repositoryExists(forkedRepo));
+                    cloneScreenshotsRepo();
+                });
+            });
+        }
+    },
+
+    commit: {
+        description: commitDescription,
+        fn: exports.commitScreenshots
+    },
+
+    push: {
+        description: pushDescription,
+        fn: exports.pushScreenshots
+    },
+
+    pr: {
+        description: prDescription,
+        fn: exports.makePullRequest
+    }
 };
 
-let longestAction =_.maxBy(_.keys(actions), 'length');
 let helpText = `
 Usage: snappit-ci configFile [${_.keys(actions).join('|')}]
+
+These actions are meant to be run in order, during different steps in your end to end tests.
+
+Example:
+
+\`npm bin\`/snappit-ci protractor.conf.js clone
+\`npm bin\`/protractor
+\`npm bin\`/snappit-ci protractor.conf.js commit
+\`npm bin\`/snappit-ci protractor.conf.js push
+\`npm bin\`/snappit-ci protractor.conf.js pr
 
 Actions:
 `;
 if (action === undefined || !_.includes(actions, action)) {
     console.log(helpText);
-    _.each(actions, (details, a) => { console.log(_.padEnd(a, longestAction.length), details) });
+    _.each(actions, (details, a) => { console.log(a + ':', details.description) });
     process.exit(0);
 }
 
@@ -156,7 +232,7 @@ vars = {
     pullRequestNumber: currentVars.pullRequestNumber
 };
 
-let checkIfRepositoryExists = (repoUrl) => {
+let repositoryExists = (repoUrl) => {
     let repositoryInfo = JSON.parse(execSync(`curl ${repoUrl}`).toString('utf-8'));
     return repositoryInfo.message !== 'Not Found';
 };
@@ -236,7 +312,7 @@ let cloneScreenshotsRepo = () => {
 }
 
 let cmd = command => execSync(`${command}`, { stdio: [0, 1, 2] });
-let commitScreenshots = () => {
+exports.commitScreenshots = () => {
     cmd(`cd ${config.snappit.screenshotsDirectory}`);
     cmd(`git checkout -b ${config.snappit.cicd.messages.branchName(vars)}`);
     cmd(`git config user.name "${config.snappit.cicd.serviceAccount.userName}"`);
@@ -246,13 +322,16 @@ let commitScreenshots = () => {
     cmd(`git commit -m "${config.snappit.cicd.messages.commitMessage(vars)}"`);
 };
 
-let pushScreenshots = () => {
-    let pushUrl = `https://${token}@${screenshotsRepo.host}${screenshots.path}.git`;
+exports.pushScreenshots = () => {
+    // pushes to the fork created by the service account, not the main screenshots repo
+    let user = config.snappit.cicd.userAccount.userName;
+    let repoName = _.last(screenshotsUrl.path.split('/'));
+    let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${user}/${repoName}.git`;
     // don't log any of this information out to the console!
     execSync(`git push ${pushUrl} ${config.snappit.cicd.messages.branchName(vars)} > /dev/null 2>&1`);
 };
 
-let makePullRequest = () => {
+exports.makePullRequest = () => {
     var data = {
         title: config.snappit.cicd.meessages.pullRequestTitle(vars),
         body: config.snappit.cicd.meessages.pullRequestBody(vars),
@@ -286,3 +365,7 @@ let makePullRequest = () => {
     });
 
 };
+
+if (require.main === module) {
+    actions[action].fn();
+}
