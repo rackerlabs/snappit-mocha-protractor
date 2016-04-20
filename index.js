@@ -18,6 +18,10 @@ exports.configure = options => {
 };
 
 browser.getProcessedConfig().then(function (config) {
+    if (!config.snappit) {
+        config.snappit = {};
+    }
+
     let options = config.snappit;
     exports.configure(_.defaults({
         screenshotsDirectory: options.screenshotsDirectory,
