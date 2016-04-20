@@ -12,6 +12,23 @@ var _ = require('lodash');
 let args = process.argv.slice(2);
 let action = args[1];
 
+let showHelpTextAndQuit = (helpText, actions) => {
+    console.log(helpText);
+    _.each(actions, (details, a) => { console.log(a + ':', details.description) });
+    process.exit(0);
+};
+
+if (args[0] === undefined) {
+    showHelpTextAndQuit('Your first argument must be the path to your protractor.conf.js file.', {});
+};
+
+let config = require(path.join(process.cwd(), args[0])).config;
+
+let projectRepo = url.parse(config.snappit.cicd.projectRepo);
+let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
+let token = process.env[config.snappit.cicd.githubEnvironmentVariable];
+let currentBranch = execSync('git branch --no-color | grep "^*\s" | cut -c3-').toString('utf-8');
+
 let cloneDescription = `
 Sets up and clones the screenshots repository into the main project repository.
 This includes creating the screenshots repo first, if it does not exist.
@@ -41,48 +58,22 @@ The pull request body is configurable from the 'config.snappit.cicd.messages.pul
 let actions = {
     clone: {
         description: cloneDescription,
-        fn: () => {
-            if (!repositoryExists(projectRepo)) {
-                throw new Error(`Main project repo ${projectRepo.url} does not exist!`);
-            }
-
-            let repoAction = new Promise.resolve(`Repository ${screenshotsRepo.url} already exists.`);
-            if (!repositoryExists(screenshotsRepo)) {
-                console.log(`Screenshots repository ${screenshotsRepo.url} not found. Creating...`);
-                repoAction = createRepository(screenshotsRepo).then(function () {
-                    return `Created a new screenshots repository at ${screenshotsRepo.url}`;
-                });
-            }
-
-            // will either create a repo (if it doesn't exist), or return a message stating that it does exist
-            return repoAction.then(function (message) {
-                console.log(message);
-                let user = config.snappit.cicd.userAccount.userName;
-                let repoName = _.last(repoUrl.path.split('/'));
-                let forkedRepo = `https://${screenshotsRepo.hostname}/${user}/${repoName}`;
-                return forkRepository(screenshotsRepo).then(function () {
-                    do {
-                        setTimeout(() => console.log(`Waiting on forked repository ${forkedRepo} to appear...`), 3000);
-                    } while (!repositoryExists(forkedRepo));
-                    cloneScreenshotsRepo();
-                });
-            });
-        }
+        get fn() { return exports.createForkAndClone; }
     },
 
     commit: {
         description: commitDescription,
-        fn: exports.commitScreenshots
+        get fn() { return exports.commitScreenshots; }
     },
 
     push: {
         description: pushDescription,
-        fn: exports.pushScreenshots
+        get fn() { return exports.pushScreenshots; }
     },
 
     pr: {
         description: prDescription,
-        fn: exports.makePullRequest
+        get fn() { return exports.makePullRequest; }
     }
 };
 
@@ -101,18 +92,9 @@ Example:
 
 Actions:
 `;
-if (action === undefined || !_.includes(actions, action)) {
-    console.log(helpText);
-    _.each(actions, (details, a) => { console.log(a + ':', details.description) });
-    process.exit(0);
+if (action === undefined || !_.includes(_.keys(actions), action)) {
+    showHelpTextAndQuit(helpText, actions);
 }
-
-let config = require(path.join(process.cwd(), args[0])).config;
-let projectRepo = url.parse(config.snappit.cicd.projectRepo);
-let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
-
-let token = process.env[config.snappit.cicd.githubEnvironmentVariable];
-let currentBranch = execSync('git branch --no-color | grep "^*\s" | cut -c3-').toString('utf-8');
 
 /**
  * Codeship doesn't natively support getting you the branch number of a pull request
@@ -160,6 +142,8 @@ let findPullRequestNumber = (branchName) => {
  * to users to construct custom commit messages, pull request title/body contents, etc. They
  * are here because the default behavior is to reference the pull request that snappit is taking
  * screenshots of via a github mention: https://github.com/blog/957-introducing-issue-mentions.
+ * The values under each key are under a getter function to prevent javascript from evaluating the contents
+ * of those values in environments where it doesn't make sense (such as in local testing).
  *
  * NOTE:
  * Since codeship's pullRequestNumber is fetched via an api call, all `pullRequestNumber`
@@ -167,24 +151,31 @@ let findPullRequestNumber = (branchName) => {
  */
 let supportedCIEnvironments = {
     travis: {
-        name: 'travis',
-        url: 'https://travis-ci.org',
-        sha1: process.env.TRAVIS_COMMIT_RANGE.slice(43, 50),
-        pullRequestNumber: new Promise.resolve(process.env.TRAVIS_PULL_REQUEST)
+        get name() { return 'travis'; },
+        get url() { return 'https://travis-ci.org'; },
+        get sha1() { return process.env.TRAVIS_COMMIT_RANGE.slice(43, 50); },
+        get pullRequestNumber() { return Promise.resolve(process.env.TRAVIS_PULL_REQUEST); }
     },
 
     codeship: {
-        name: 'codeship',
-        url: 'https://codeship.io',
-        sha1: process.env.CI_COMMIT_ID.slice(0, 7),
-        pullRequestNumber: findPullRequestNumber(currentBranch)
+        get name() { return 'codeship'; },
+        get url() { return 'https://codeship.io'; },
+        get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
+        get pullRequestNumber() { return findPullRequestNumber(currentBranch); },
     },
 
     jenkins: {
-        name: 'jenkins-ghprb',
-        url: 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin',
-        sha1: process.env.sha1.slice(0, 7),
-        pullRequestNumber: new Promise.resolve(process.env.ghprbPullId)
+        get name() { return 'jenkins-ghprb'; },
+        get url() { return 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin'; },
+        get sha1() { return process.env.sha1.slice(0, 7); },
+        get pullRequestNumber() { return Promise.resolve(process.env.ghprbPullId); }
+    },
+
+    undefined: {
+        get name() { return 'unknown-ci-provider'; },
+        get url() { return 'https://github.com/rackerlabs/snappit-mocha-protractor/issues/new'; },
+        get sha1() { return 'sha1-unavailable'; },
+        get pullRequestNumber() { return Promise.resolve('pull-request-number-unavailable'); }
     }
 };
 
@@ -204,8 +195,6 @@ https://github.com/rackerlabs/snappit-mocha-protractor/issues
 and specify your CI setup to have it added it to the list of supported environments.
 
 Supported CI environments:
-
-${ _.map(supportedCIEnvironments, (details, name) => { name + ': ' + details.url }) }
 `;
 
 let currentCIEnvironment = () => {
@@ -222,18 +211,29 @@ let currentCIEnvironment = () => {
     }
 
     console.log(unknownCIEnvironmentError);
+    _.each(supportedCIEnvironments, (details, name) => {
+        // don't print the undefined ci env details
+        if (name !== 'undefined') {
+            console.log(name + ': ' + details.url);
+        }
+    });
 };
 
-let currentVars = supportedCIEnvironments[currentCIEnvironment()];
-vars = {
-    sha1: currentVars.sha1,
-    repoSlug: projectRepo.path.slice(1), // drop leading "/" character
-    branch: currentBranch,
-    pullRequestNumber: currentVars.pullRequestNumber
-};
+let currentEnvVars = supportedCIEnvironments[currentCIEnvironment()];
+// all environments have these vars that are always the same
+let vars = Object.defineProperties(currentEnvVars, {
+    repoSlug: {
+        get: () => projectRepo.path.slice(1) // drop leading "/" character
+    },
+
+    branch: {
+        get: () => currentBranch
+    }
+});
 
 let repositoryExists = (repoUrl) => {
-    let repositoryInfo = JSON.parse(execSync(`curl ${repoUrl}`).toString('utf-8'));
+    let url = `https://api.${repoUrl.hostname}/repos/${repoUrl.path}`;
+    let repositoryInfo = JSON.parse(execSync(`curl ${url} 2>/dev/null`).toString('utf-8'));
     return repositoryInfo.message !== 'Not Found';
 };
 
@@ -257,7 +257,7 @@ let createRepository = (repoUrl) => {
     return new Promise((resolve, reject) => {
         let req = https.request(options, function (res) {
             if (res.statusCode !== 201) {
-                return reject(new Error(`Something went wrong while creating the repository ${repoUrl.url}!`));
+                return reject(new Error(`Something went wrong while creating the repository ${repoUrl.href}!`));
             }
         });
 
@@ -292,7 +292,7 @@ let forkRepository = (repoUrl) => {
     return new Promise((resolve, reject) => {
         let req = https.request(options, function (res) {
             if (res.statusCode !== 201) {
-                return reject(new Error(`Something went wrong while forking the repository ${repoUrl.url}!`));
+                return reject(new Error(`Something went wrong while forking the repository ${repoUrl.href}!`));
             }
         });
 
@@ -309,7 +309,35 @@ let cloneScreenshotsRepo = () => {
     let cloneUrl = `https://${token}@${screenshotsRepo.host}${screenshotsRepo.path}.git`;
     // don't log any of this information out to the console!
     execSync(`git submodule add -f ${cloneUrl} screenshots > /dev/null`);
-}
+};
+
+exports.createForkAndClone = () => {
+    if (!repositoryExists(projectRepo)) {
+        throw new Error(`Main project repo ${projectRepo.href} does not exist!`);
+    }
+
+    let repoAction = Promise.resolve(`Repository ${screenshotsRepo.href} already exists.`);
+    if (!repositoryExists(screenshotsRepo)) {
+        console.log(`Screenshots repository ${screenshotsRepo.href} not found. Creating...`);
+        repoAction = createRepository(screenshotsRepo).then(function () {
+            return `Created a new screenshots repository at ${screenshotsRepo.href}`;
+        });
+    }
+
+    // will either create a repo (if it doesn't exist), or return a message stating that it does exist
+    return repoAction.then(function (message) {
+        console.log(message);
+        let user = config.snappit.cicd.userAccount.userName;
+        let repoName = _.last(repoUrl.path.split('/'));
+        let forkedRepo = `https://${screenshotsRepo.hostname}/${user}/${repoName}`;
+        return forkRepository(screenshotsRepo).then(function () {
+            do {
+                setTimeout(() => console.log(`Waiting on forked repository ${forkedRepo} to appear...`), 3000);
+            } while (!repositoryExists(forkedRepo));
+            cloneScreenshotsRepo();
+        });
+    });
+};
 
 let cmd = command => execSync(`${command}`, { stdio: [0, 1, 2] });
 exports.commitScreenshots = () => {
