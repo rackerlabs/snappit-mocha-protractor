@@ -366,10 +366,15 @@ exports.commitScreenshots = () => {
 exports.pushScreenshots = () => {
     // pushes to the fork created by the service account, not the main screenshots repo
     let user = config.snappit.cicd.serviceAccount.userName;
-    let repoName = _.last(screenshotsUrl.path.split('/'));
+    let repoName = _.last(screenshotsRepo.path.split('/'));
     let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${user}/${repoName}.git`;
     // don't log any of this information out to the console!
-    execSync(`git push ${pushUrl} ${config.snappit.cicd.messages.branchName(vars)} > /dev/null 2>&1`);
+    let sensitiveCommand = [
+        `cd ${config.snappit.screenshotsDirectory}`,
+        `git push ${pushUrl} ${config.snappit.cicd.messages.branchName(vars)} > /dev/null 2>&1`
+    ].join('; ');
+
+    execSync(sensitiveCommand);
 };
 
 exports.makePullRequest = () => {
