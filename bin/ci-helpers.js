@@ -26,7 +26,7 @@ let config = require(path.join(process.cwd(), args[0])).config;
 
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
 let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
-let token = process.env[config.snappit.cicd.githubEnvironmentVariable];
+let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
 let currentBranch = execSync('git branch --no-color | grep "^*\s" | cut -c3-').toString('utf-8');
 
 let cloneDescription = `
@@ -190,7 +190,7 @@ some default messages appear in for the commit message, pull request body, etc.
 
 Please report this to
 
-https://github.com/rackerlabs/snappit-mocha-protractor/issues
+https://github.com/rackerlabs/snappit-mocha-protractor/issues/new
 
 and specify your CI setup to have it added it to the list of supported environments.
 
@@ -241,8 +241,13 @@ let repositoryExists = (repoUrl) => {
 let createRepository = (repoUrl) => {
     let org = repoUrl.path.match(/\/.*\//)[0];
     var data = {
-        name: _.last(repoUrl.path.split('/'))
+        name: _.last(repoUrl.path.split('/')),
+        auto_init: true
     };
+
+    if (config.snappit.cicd.serviceAccount.teamId !== undefined) {
+        data.team_id = config.snappit.cicd.serviceAccount.teamId;
+    }
 
     var options = {
         hostname: `api.${repoUrl.hostname}`,
@@ -257,8 +262,12 @@ let createRepository = (repoUrl) => {
 
     return new Promise((resolve, reject) => {
         let req = https.request(options, res => {
+            var data = [];
             if (res.statusCode !== 201) {
-                throw new Error(`(HTTP ${res.statusCode}) Something went wrong while creating the repository ${repoUrl.href}`);
+                res.on('data', d => { data.push(d.toString('utf-8'))});
+                res.on('end', () => {
+                    throw new Error(`(HTTP ${res.statusCode}) Something went wrong while creating the repository ${repoUrl.href}:\n${data.join('')}`);
+                });
             }
             resolve(`Created a new repository at ${repoUrl.href}`);
         });
@@ -275,12 +284,12 @@ let createRepository = (repoUrl) => {
  * Perhaps someday that will be a nice feature.
  */
 let forkRepository = (repoUrl) => {
-    let user = config.snappit.cicd.userAccount.userName;
-    let repoName = _.last(repoUrl.path.split('/'));
+    // let user = config.snappit.cicd.serviceAccount.userName;
+    // let repoName = _.last(repoUrl.path.split('/'));
 
     var options = {
         hostname: `api.${repoUrl.hostname}`,
-        path: `/repos/${user}/${repoName}/forks`,
+        path: `/repos${repoUrl.path}/forks`,
         method: 'POST',
         headers: {
             'User-Agent': 'snappit',
@@ -291,13 +300,15 @@ let forkRepository = (repoUrl) => {
 
     return new Promise((resolve, reject) => {
         let req = https.request(options, res => {
-            if (res.statusCode !== 201) {
-                throw new Error(`(HTTP ${res.statusCode}) Something went wrong while forking the repository ${repoUrl.href}`);
+            var data = [];
+            if (res.statusCode !== 202) {
+                res.on('data', d => { data.push(d.toString('utf-8'))});
+                res.on('end', () => {
+                    throw new Error(`(HTTP ${res.statusCode}) Something went wrong while forking the repository ${repoUrl.href}:\n${data.join('')}`);
+                });
             }
             resolve(`Forked the repository ${repoUrl.href}`);
         });
-
-        req.write(JSON.stringify(data));
 
         req.end();
     });
@@ -323,13 +334,16 @@ exports.createForkAndClone = () => {
     // will either create a repo (if it doesn't exist), or return a message stating that it does exist
     return repoAction.then(message => {
         console.log(message);
-        let user = config.snappit.cicd.userAccount.userName;
-        let repoName = _.last(repoUrl.path.split('/'));
-        let forkedRepo = `https://${screenshotsRepo.hostname}/${user}/${repoName}`;
-        return forkRepository(screenshotsRepo).then(() => {
+        let user = config.snappit.cicd.serviceAccount.userName;
+        let repoName = _.last(screenshotsRepo.path.split('/'));
+        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${user}/${repoName}`);
+        return forkRepository(screenshotsRepo).then((message) => {
+            console.log(message);
             do {
-                setTimeout(() => console.log(`Waiting on forked repository ${forkedRepo} to appear...`), 3000);
-            } while (!repositoryExists(forkedRepo));
+                setTimeout(() => {
+                    console.log(`Waiting on forked repository ${forkedRepo.href} to appear...`)
+                }, 1000);
+            } while (!repositoryExists(forkedRepo))
             cloneScreenshotsRepo();
         });
     });
@@ -348,7 +362,7 @@ exports.commitScreenshots = () => {
 
 exports.pushScreenshots = () => {
     // pushes to the fork created by the service account, not the main screenshots repo
-    let user = config.snappit.cicd.userAccount.userName;
+    let user = config.snappit.cicd.serviceAccount.userName;
     let repoName = _.last(screenshotsUrl.path.split('/'));
     let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${user}/${repoName}.git`;
     // don't log any of this information out to the console!
@@ -376,8 +390,12 @@ exports.makePullRequest = () => {
 
     return new Promise((resolve, reject) => {
         let req = https.request(options, res => {
+            var data = [];
             if (res.statusCode !== 201) {
-                throw new Error(`(HTTP ${res.statusCode}) Something went wrong with the pull request`);
+                res.on('data', d => { data.push(d.toString('utf-8'))});
+                res.on('end', () => {
+                    throw new Error(`(HTTP ${res.statusCode}) Something went wrong with the pull request:\n${data.join('')}`);
+                });
             }
             resolve();
         });
@@ -391,4 +409,4 @@ exports.makePullRequest = () => {
 
 if (require.main === module) {
     actions[action].fn();
-}
+};

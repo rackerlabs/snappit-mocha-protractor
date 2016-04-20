@@ -18,7 +18,8 @@ exports.config = {
         cicd: {
             serviceAccount: {
                 userName: 'comeatmebro',
-                userEmail: 'comeatmebro@users.noreply.github.com'
+                userEmail: 'comeatmebro@users.noreply.github.com',
+                teamId: 442108
             },
             githubTokenEnvironmentVariable: 'ghToken',
             screenshotsRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor-screenshots',
