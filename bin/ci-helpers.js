@@ -115,7 +115,7 @@ let findPullRequestNumber = (branchName) => {
     };
 
     return new Promise((resolve, reject) => {
-        let req = https.request(options, function (res) {
+        let req = https.request(options, res => {
             var response = [];
             res.on('data', d => {
                 response.push(d.toString('utf-8'));
@@ -217,6 +217,7 @@ let currentCIEnvironment = () => {
             console.log(name + ': ' + details.url);
         }
     });
+    console.log();
 };
 
 let currentEnvVars = supportedCIEnvironments[currentCIEnvironment()];
@@ -232,7 +233,7 @@ let vars = Object.defineProperties(currentEnvVars, {
 });
 
 let repositoryExists = (repoUrl) => {
-    let url = `https://api.${repoUrl.hostname}/repos/${repoUrl.path}`;
+    let url = `https://api.${repoUrl.hostname}/repos${repoUrl.path}`;
     let repositoryInfo = JSON.parse(execSync(`curl ${url} 2>/dev/null`).toString('utf-8'));
     return repositoryInfo.message !== 'Not Found';
 };
@@ -255,17 +256,16 @@ let createRepository = (repoUrl) => {
     };
 
     return new Promise((resolve, reject) => {
-        let req = https.request(options, function (res) {
+        let req = https.request(options, res => {
             if (res.statusCode !== 201) {
-                return reject(new Error(`Something went wrong while creating the repository ${repoUrl.href}!`));
+                throw new Error(`(HTTP ${res.statusCode}) Something went wrong while creating the repository ${repoUrl.href}`);
             }
+            resolve(`Created a new repository at ${repoUrl.href}`);
         });
 
         req.write(JSON.stringify(data));
 
         req.end();
-
-        return resolve();
     });
 
 };
@@ -290,19 +290,17 @@ let forkRepository = (repoUrl) => {
     };
 
     return new Promise((resolve, reject) => {
-        let req = https.request(options, function (res) {
+        let req = https.request(options, res => {
             if (res.statusCode !== 201) {
-                return reject(new Error(`Something went wrong while forking the repository ${repoUrl.href}!`));
+                throw new Error(`(HTTP ${res.statusCode}) Something went wrong while forking the repository ${repoUrl.href}`);
             }
+            resolve(`Forked the repository ${repoUrl.href}`);
         });
 
         req.write(JSON.stringify(data));
 
         req.end();
-
-        return resolve();
     });
-
 };
 
 let cloneScreenshotsRepo = () => {
@@ -319,18 +317,16 @@ exports.createForkAndClone = () => {
     let repoAction = Promise.resolve(`Repository ${screenshotsRepo.href} already exists.`);
     if (!repositoryExists(screenshotsRepo)) {
         console.log(`Screenshots repository ${screenshotsRepo.href} not found. Creating...`);
-        repoAction = createRepository(screenshotsRepo).then(function () {
-            return `Created a new screenshots repository at ${screenshotsRepo.href}`;
-        });
+        repoAction = createRepository(screenshotsRepo);
     }
 
     // will either create a repo (if it doesn't exist), or return a message stating that it does exist
-    return repoAction.then(function (message) {
+    return repoAction.then(message => {
         console.log(message);
         let user = config.snappit.cicd.userAccount.userName;
         let repoName = _.last(repoUrl.path.split('/'));
         let forkedRepo = `https://${screenshotsRepo.hostname}/${user}/${repoName}`;
-        return forkRepository(screenshotsRepo).then(function () {
+        return forkRepository(screenshotsRepo).then(() => {
             do {
                 setTimeout(() => console.log(`Waiting on forked repository ${forkedRepo} to appear...`), 3000);
             } while (!repositoryExists(forkedRepo));
@@ -379,17 +375,16 @@ exports.makePullRequest = () => {
     };
 
     return new Promise((resolve, reject) => {
-        let req = https.request(options, function (res) {
+        let req = https.request(options, res => {
             if (res.statusCode !== 201) {
-                return reject(new Error('Something went wrong with the pull request!'));
+                throw new Error(`(HTTP ${res.statusCode}) Something went wrong with the pull request`);
             }
+            resolve();
         });
 
         req.write(JSON.stringify(data));
 
         req.end();
-
-        return resolve();
     });
 
 };
