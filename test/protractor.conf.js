@@ -27,16 +27,16 @@ exports.config = {
             targetBranch: 'master',
             messages: {
                 branchName: function (vars) {
-                    return `SHA-${vars.sha1}`;
+                    return `test-branch`;
                 },
                 commitMessage: function (vars) {
-                    return `chore(screenshots): Visual diff against ${vars.sha1}`;
+                    return `chore(screenshots): Visual diff test`;
                 },
                 pullRequestBody: function (vars) {
-                    return `See ${vars.repoSlug}#${vars.pullRequestNumber}`;
+                    return `See the other repo`;
                 },
                 pullRequestTitle: function (vars) {
-                    return `Screenshots for ${vars.repoSlug}#${vars.pullRequestNumber}`;
+                    return `Screenshots for other project`;
                 }
             }
         }

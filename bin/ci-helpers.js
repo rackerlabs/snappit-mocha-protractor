@@ -351,13 +351,16 @@ exports.createForkAndClone = () => {
 
 let cmd = command => execSync(`${command}`, { stdio: [0, 1, 2] });
 exports.commitScreenshots = () => {
-    cmd(`cd ${config.snappit.screenshotsDirectory}`);
-    cmd(`git checkout -b ${config.snappit.cicd.messages.branchName(vars)}`);
-    cmd(`git config user.name "${config.snappit.cicd.serviceAccount.userName}"`);
-    cmd(`git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`);
-    cmd(`git add -A`);
-    cmd(`git status -sb`);
-    cmd(`git commit -m "${config.snappit.cicd.messages.commitMessage(vars)}"`);
+    let cmds = [
+        `cd ${config.snappit.screenshotsDirectory}`,
+        `git checkout -b ${config.snappit.cicd.messages.branchName(vars)}`,
+        `git config user.name "${config.snappit.cicd.serviceAccount.userName}"`,
+        `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
+        `git add -A`,
+        `git status -sb`,
+        `git commit -m "${config.snappit.cicd.messages.commitMessage(vars)}"`
+    ];
+    cmd(cmds.join('; '));
 };
 
 exports.pushScreenshots = () => {
