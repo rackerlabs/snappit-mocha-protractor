@@ -25,6 +25,7 @@ describe('Angular JS', function () {
         before(function () {
             var dropdown = $('.dropdown .icon-book');
             dropdown.click();
+            dropdown.click();
             screenshot.snap(this, $('.dropdown.open .dropdown-menu'));
             element(by.cssContainingText('.dropdown.open a', 'Tutorial')).click();
         });
