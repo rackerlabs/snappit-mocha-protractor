@@ -29,12 +29,15 @@ exports.config = {
                 branchName: function (vars) {
                     return `test-branch`;
                 },
+
                 commitMessage: function (vars) {
                     return `chore(screenshots): Visual diff test`;
                 },
+
                 pullRequestBody: function (vars) {
                     return `See the other repo`;
                 },
+
                 pullRequestTitle: function (vars) {
                     return `Screenshots for other project`;
                 }

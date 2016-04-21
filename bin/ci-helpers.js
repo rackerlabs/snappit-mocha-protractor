@@ -317,7 +317,7 @@ let forkRepository = (repoUrl) => {
 let cloneScreenshotsRepo = () => {
     let cloneUrl = `https://${token}@${screenshotsRepo.host}${screenshotsRepo.path}.git`;
     // don't log any of this information out to the console!
-    execSync(`git submodule add -f ${cloneUrl} screenshots > /dev/null`);
+    execSync(`git submodule add ${cloneUrl} screenshots > /dev/null`);
 };
 
 exports.createForkAndClone = () => {
@@ -379,10 +379,10 @@ exports.pushScreenshots = () => {
 
 exports.makePullRequest = () => {
     var data = {
-        title: config.snappit.cicd.meessages.pullRequestTitle(vars),
-        body: config.snappit.cicd.meessages.pullRequestBody(vars),
+        title: config.snappit.cicd.messages.pullRequestTitle(vars),
+        body: config.snappit.cicd.messages.pullRequestBody(vars),
         base: config.snappit.cicd.targetBranch,
-        head: `${config.snappit.cicd.serviceAccount.userName}:${config.snappit.cicd.meessages.branchName(vars)}`
+        head: `${config.snappit.cicd.serviceAccount.userName}:${config.snappit.cicd.messages.branchName(vars)}`
     };
 
     var options = {
