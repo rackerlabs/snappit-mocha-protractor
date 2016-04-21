@@ -27,6 +27,7 @@ let config = require(path.join(process.cwd(), args[0])).config;
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
 let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
 let org = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+let userName = config.snappit.cicd.serviceAccount.userName;
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
 let currentBranch = execSync('git branch --no-color | grep "^*\s" | cut -c3-').toString('utf-8');
 
@@ -288,7 +289,7 @@ let createRepository = (repoUrl) => {
                     `cd ${config.snappit.screenshotsDirectory}`,
                     `git checkout master`,
                     `echo $'\n\nVisual Regression tracking for ${projectRepo.href}' >> README.md`,
-                    `git config user.name "${config.snappit.cicd.serviceAccount.userName}"`,
+                    `git config user.name "${userName}"`,
                     `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
                     `git add -A`,
                     `git commit -m "chore(README): Include link to main project"`
@@ -312,9 +313,6 @@ let createRepository = (repoUrl) => {
  * Perhaps someday that will be a nice feature.
  */
 let forkRepository = (repoUrl) => {
-    // let user = config.snappit.cicd.serviceAccount.userName;
-    // let repoName = _.last(repoUrl.path.split('/'));
-
     var options = {
         hostname: `api.${repoUrl.hostname}`,
         path: `/repos${repoUrl.path}/forks`,
@@ -362,9 +360,8 @@ exports.createForkAndClone = () => {
     // will either create a repo (if it doesn't exist), or return a message stating that it does exist
     return repoAction.then(message => {
         console.log(message);
-        let user = config.snappit.cicd.serviceAccount.userName;
         let repoName = _.last(screenshotsRepo.path.split('/'));
-        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${user}/${repoName}`);
+        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${userName}/${repoName}`);
         if (!repositoryExists(forkedRepo)) {
             return forkRepository(screenshotsRepo).then((message) => {
                 console.log(message);
@@ -385,7 +382,7 @@ exports.commitScreenshots = () => {
     let cmds = [
         `cd ${config.snappit.screenshotsDirectory}`,
         `git checkout -b ${config.snappit.cicd.messages.branchName(vars)}`,
-        `git config user.name "${config.snappit.cicd.serviceAccount.userName}"`,
+        `git config user.name "${userName}"`,
         `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
         `git add -A`,
         `git status -sb`,
@@ -397,7 +394,7 @@ exports.commitScreenshots = () => {
 exports.pushCommit = (initialCommit) => {
     // pushes to the fork created by the service account by default, not the main screenshots repo
     // unless this is the first commit that's going into the project to allow for PRs in the future.
-    var user = initialCommit ? org : config.snappit.cicd.serviceAccount.userName;
+    var user = initialCommit ? org : userName;
     let branch = initialCommit ? 'master' : config.snappit.cicd.messages.branchName(vars);
     let repoName = _.last(screenshotsRepo.path.split('/'));
     let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${user}/${repoName}.git`;
@@ -414,13 +411,13 @@ exports.makePullRequest = () => {
     var data = {
         title: config.snappit.cicd.messages.pullRequestTitle(vars),
         body: config.snappit.cicd.messages.pullRequestBody(vars),
-        base: config.snappit.cicd.targetBranch,
-        head: `${config.snappit.cicd.serviceAccount.userName}:${config.snappit.cicd.messages.branchName(vars)}`
+        head: `${userName}:${config.snappit.cicd.messages.branchName(vars)}`,
+        base: config.snappit.cicd.targetBranch
     };
 
     var options = {
         hostname: `api.${projectRepo.hostname}`,
-        path: `/repos${projectRepo.path}/pulls`,
+        path: `/repos${screenshotsRepo.path}/pulls`,
         method: 'POST',
         headers: {
             'User-Agent': 'snappit',
