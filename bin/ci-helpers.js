@@ -26,6 +26,7 @@ let config = require(path.join(process.cwd(), args[0])).config;
 
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
 let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
+let org = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
 let currentBranch = execSync('git branch --no-color | grep "^*\s" | cut -c3-').toString('utf-8');
 
@@ -105,7 +106,7 @@ if (action === undefined || !_.includes(_.keys(actions), action)) {
 let findPullRequestNumber = (branchName) => {
     var options = {
         hostname: `api.${projectRepo.hostname}`,
-        path: `/repos${projectRepo.path}/pulls?head=${orgName}:${branchName}`,
+        path: `/repos${projectRepo.path}/pulls?head=${org}:${branchName}`,
         method: 'GET',
         headers: {
             'User-Agent': 'snappit',
@@ -244,7 +245,6 @@ let repositoryExists = (repoUrl) => {
  * change on the master branch in order for the github API to see changes between a fork's branch and master.
  */
 let createRepository = (repoUrl) => {
-    let org = repoUrl.path.match(/\/.*\//)[0];
     var data = {
         name: _.last(repoUrl.path.split('/')),
         auto_init: true
@@ -256,7 +256,7 @@ let createRepository = (repoUrl) => {
 
     var options = {
         hostname: `api.${repoUrl.hostname}`,
-        path: `/orgs${org}repos`,
+        path: `/orgs/${org}/repos`,
         method: 'POST',
         headers: {
             'User-Agent': 'snappit',
@@ -267,26 +267,37 @@ let createRepository = (repoUrl) => {
 
     return new Promise((resolve, reject) => {
         let req = https.request(options, res => {
-            var data = [];
             if (res.statusCode !== 201) {
+                var data = [];
                 res.on('data', d => { data.push(d.toString('utf-8'))});
                 res.on('end', () => {
                     throw new Error(`(HTTP ${res.statusCode}) Something went wrong while creating the repository ${repoUrl.href}:\n${data.join('')}`);
                 });
             }
 
-            let createDudCommitCommands = [
-                `cd ${config.snappit.screenshotsDirectory}`,
-                `git checkout master`,
-                `echo $'\n\nVisual Regression tracking for ${projectRepo.href}' >> README.md`,
-                `git config user.name "${config.snappit.cicd.serviceAccount.userName}"`,
-                `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
-                `git add -A`,
-                `git commit -m "chore(README): Include link to main project"`
-            ].join('; ');
-            cmd(createDudCommitCommands);
-            exports.pushCommit();
-            resolve(`Created a new repository at ${repoUrl.href}`);
+            res.on('end', () => {
+                if (!repositoryExists(screenshotsRepo)) {
+                    do {
+                        setTimeout(() => {
+                            console.log(`Waiting on newly created repository ${screenshotsRepo.href} to appear...`)
+                        }, 1000);
+                    } while (!repositoryExists(screenshotsRepo))
+                }
+
+                let createDudCommitCommands = [
+                    `cd ${config.snappit.screenshotsDirectory}`,
+                    `git checkout master`,
+                    `echo $'\n\nVisual Regression tracking for ${projectRepo.href}' >> README.md`,
+                    `git config user.name "${config.snappit.cicd.serviceAccount.userName}"`,
+                    `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
+                    `git add -A`,
+                    `git commit -m "chore(README): Include link to main project"`
+                ].join('; ');
+                cmd(createDudCommitCommands);
+                let isNewRepository = true;
+                exports.pushCommit(isNewRepository);
+                resolve(`Created a new repository at ${repoUrl.href}`);
+            });
         });
 
         req.write(JSON.stringify(data));
@@ -334,7 +345,7 @@ let forkRepository = (repoUrl) => {
 let cloneScreenshotsRepo = () => {
     let cloneUrl = `https://${token}@${screenshotsRepo.host}${screenshotsRepo.path}.git`;
     // don't log any of this information out to the console!
-    execSync(`git submodule add ${cloneUrl} screenshots > /dev/null`);
+    execSync(`git submodule add -f ${cloneUrl} screenshots > /dev/null`);
 };
 
 exports.createForkAndClone = () => {
@@ -354,15 +365,18 @@ exports.createForkAndClone = () => {
         let user = config.snappit.cicd.serviceAccount.userName;
         let repoName = _.last(screenshotsRepo.path.split('/'));
         let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${user}/${repoName}`);
-        return forkRepository(screenshotsRepo).then((message) => {
-            console.log(message);
-            do {
-                setTimeout(() => {
-                    console.log(`Waiting on forked repository ${forkedRepo.href} to appear...`)
-                }, 1000);
-            } while (!repositoryExists(forkedRepo))
-            cloneScreenshotsRepo();
-        });
+        if (!repositoryExists(forkedRepo)) {
+            return forkRepository(screenshotsRepo).then((message) => {
+                console.log(message);
+                do {
+                    setTimeout(() => {
+                        console.log(`Waiting on forked repository ${forkedRepo.href} to appear...`)
+                    }, 1000);
+                } while (!repositoryExists(forkedRepo))
+            });
+        }
+
+        cloneScreenshotsRepo();
     });
 };
 
@@ -380,15 +394,17 @@ exports.commitScreenshots = () => {
     cmd(cmds.join('; '));
 };
 
-exports.pushCommit = () => {
-    // pushes to the fork created by the service account, not the main screenshots repo
-    let user = config.snappit.cicd.serviceAccount.userName;
+exports.pushCommit = (initialCommit) => {
+    // pushes to the fork created by the service account by default, not the main screenshots repo
+    // unless this is the first commit that's going into the project to allow for PRs in the future.
+    var user = initialCommit ? org : config.snappit.cicd.serviceAccount.userName;
+    let branch = initialCommit ? 'master' : config.snappit.cicd.messages.branchName(vars);
     let repoName = _.last(screenshotsRepo.path.split('/'));
     let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${user}/${repoName}.git`;
     // don't log any of this information out to the console!
     let sensitiveCommand = [
         `cd ${config.snappit.screenshotsDirectory}`,
-        `git push ${pushUrl} ${config.snappit.cicd.messages.branchName(vars)} > /dev/null 2>&1`
+        `git push ${pushUrl} ${branch} > /dev/null 2>&1`
     ].join('; ');
 
     execSync(sensitiveCommand);
@@ -429,7 +445,6 @@ exports.makePullRequest = () => {
 
         req.end();
     });
-
 };
 
 if (require.main === module) {

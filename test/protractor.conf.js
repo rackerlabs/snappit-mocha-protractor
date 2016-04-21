@@ -27,7 +27,7 @@ exports.config = {
             targetBranch: 'master',
             messages: {
                 branchName: function (vars) {
-                    return `test-branch`;
+                    return `test-branch-1`;
                 },
 
                 commitMessage: function (vars) {
