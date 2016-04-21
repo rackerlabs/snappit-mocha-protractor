@@ -68,7 +68,7 @@ let actions = {
 
     push: {
         description: pushDescription,
-        get fn() { return exports.pushScreenshots; }
+        get fn() { return exports.pushCommit; }
     },
 
     pr: {
@@ -238,6 +238,11 @@ let repositoryExists = (repoUrl) => {
     return repositoryInfo.message !== 'Not Found';
 };
 
+/**
+ * This step also includes making a "dud" commit on the master branch.
+ * For brand new repositories, an initial commit is not enough! You must have some kind of
+ * change on the master branch in order for the github API to see changes between a fork's branch and master.
+ */
 let createRepository = (repoUrl) => {
     let org = repoUrl.path.match(/\/.*\//)[0];
     var data = {
@@ -269,6 +274,18 @@ let createRepository = (repoUrl) => {
                     throw new Error(`(HTTP ${res.statusCode}) Something went wrong while creating the repository ${repoUrl.href}:\n${data.join('')}`);
                 });
             }
+
+            let createDudCommitCommands = [
+                `cd ${config.snappit.screenshotsDirectory}`,
+                `git checkout master`,
+                `echo $'\n\nVisual Regression tracking for ${projectRepo.href}' >> README.md`,
+                `git config user.name "${config.snappit.cicd.serviceAccount.userName}"`,
+                `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
+                `git add -A`,
+                `git commit -m "chore(README): Include link to main project"`
+            ].join('; ');
+            cmd(createDudCommitCommands);
+            exports.pushCommit();
             resolve(`Created a new repository at ${repoUrl.href}`);
         });
 
@@ -363,7 +380,7 @@ exports.commitScreenshots = () => {
     cmd(cmds.join('; '));
 };
 
-exports.pushScreenshots = () => {
+exports.pushCommit = () => {
     // pushes to the fork created by the service account, not the main screenshots repo
     let user = config.snappit.cicd.serviceAccount.userName;
     let repoName = _.last(screenshotsRepo.path.split('/'));
