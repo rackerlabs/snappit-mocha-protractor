@@ -1,0 +1,29 @@
+sudo: false
+language: node_js
+node_js:
+  - "5.1.1" # same as .node-version
+addons:
+  firefox: "45.0"
+  apt:
+    packages:
+      - libcairo2-dev
+      - libjpeg8-dev
+      - libpango1.0-dev
+      - libgif-dev
+      - build-essential
+      - g++
+install:
+- travis_retry npm install
+- ./node_modules/.bin/webdriver-manager update
+before_script:
+- export DISPLAY=:99.0
+- sh -e /etc/init.d/xvfb start
+- nohup bash -c "./node_modules/.bin/webdriver-manager start 2>&1 &"
+- sleep 5 # wait for selenium server to actually come up
+script:
+- npm test
+- ./bin/ci-helpers.js test/conf/travis/protractor.conf.js clone
+- ./node_modules/.bin/protractor test/conf/travis/protractor.conf.js
+- ./bin/ci-helpers.js test/conf/travis/protractor.conf.js commit
+- ./bin/ci-helpers.js test/conf/travis/protractor.conf.js push
+- ./bin/ci-helpers.js test/conf/travis/protractor.conf.js pr
