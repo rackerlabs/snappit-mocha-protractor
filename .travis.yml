@@ -1,18 +1,27 @@
 sudo: false
 language: node_js
+# http://cdunn2001.blogspot.com/2015/06/using-c11-in-travis-ci.html
+compiler:
+      - gcc
+      - clang
 node_js:
   - "5.1.1" # same as .node-version
 addons:
   firefox: "45.0"
   apt:
+    sources:
+      - ubuntu-toolchain-r-test
     packages:
       - libcairo2-dev
       - libjpeg8-dev
       - libpango1.0-dev
       - libgif-dev
       - build-essential
-      - g++
+      - gcc-4.8
+      - g++-4.8
+      - clang
 install:
+- if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 - travis_retry npm install
 - ./node_modules/.bin/webdriver-manager update
 before_script:
