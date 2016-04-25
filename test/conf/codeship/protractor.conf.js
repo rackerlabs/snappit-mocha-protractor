@@ -43,9 +43,9 @@ exports.config = {
 
                 pullRequestTitle: function (vars) {
                     if (vars.pullRequestNumber) {
-                        return `See ${vars.repoSlug}#${vars.pullRequestNumber}.`
+                        return `Screenshots for ${vars.repoSlug}#${vars.pullRequestNumber}.`
                     }
-                    return `See ${vars.repoSlug}@${vars.sha1}. Pull request number unknown.`;
+                    return `Screenshots for ${vars.repoSlug}@${vars.sha1}. Pull request number unknown.`;
                 }
             }
         }
