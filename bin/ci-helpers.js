@@ -28,6 +28,43 @@ if (args[0] === undefined) {
 
 let config = require(path.join(process.cwd(), args[0])).config;
 
+if (config.snappit.cicd === undefined) {
+    config.snappit.cicd = {};
+}
+
+config.snappit.cicd = _.defaults(config.snappit.cicd, {
+    githubTokenEnvironmentVariable: 'ghToken',
+    targetBranch: 'master'
+});
+
+if (config.snappit.cicd.messages === undefined) {
+    config.snappit.cicd.messages = {};
+}
+
+config.snappit.cicd.messages = _.defaults(config.snappit.cicd.messages, {
+    branchName: function (vars) {
+        return `SHA-${vars.sha1}`;
+    },
+
+    commitMessage: function (vars) {
+        return `chore(screenshots): Visual diff for ${vars.repoSlug}@${vars.sha1}`;
+    },
+
+    pullRequestBody: function (vars) {
+        if (vars.pullRequestNumber) {
+            return `See ${vars.repoSlug}#${vars.pullRequestNumber}.`
+        }
+        return `See ${vars.repoSlug}@${vars.sha1}. Pull request number unknown.`;
+    },
+
+    pullRequestTitle: function (vars) {
+        if (vars.pullRequestNumber) {
+            return `Screenshots for ${vars.repoSlug}#${vars.pullRequestNumber}`
+        }
+        return `Screenshots for ${vars.repoSlug}@${vars.sha1}`;
+    }
+});
+
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
 let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
 let org = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
