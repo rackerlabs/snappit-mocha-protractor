@@ -7,12 +7,16 @@ let https = require('https');
 let path = require('path');
 let url = require('url');
 
-var _ = require('lodash');
+let _ = require('lodash');
 
 let args = process.argv.slice(2);
 let action = args[1];
 
-let showHelpTextAndQuit = (helpText, actions) => {
+function cmd(command) {
+    execSync(`${command}`, { stdio: [0, 1, 2] })
+};
+
+function showHelpTextAndQuit(helpText, actions) {
     console.log(helpText);
     _.each(actions, (details, a) => { console.log(a + ':', details.description) });
     process.exit(0);
@@ -29,7 +33,6 @@ let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
 let org = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
 let userName = config.snappit.cicd.serviceAccount.userName;
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
-let currentBranch = execSync('git branch --no-color | grep "^*\s" | cut -c3-').toString('utf-8');
 
 let cloneDescription = `
 Sets up and clones the screenshots repository into the main project repository.
@@ -57,25 +60,29 @@ The pull request title is configurable from the 'config.snappit.cicd.messages.pu
 The pull request body is configurable from the 'config.snappit.cicd.messages.pullRequestBody' entry.
 `;
 
+/**
+ * Actions that are supported by the ci helpers. If you want to add new functions, this is the place to do it.
+ * All action references throughout the help text, etc., are generated via this object. Define all actions here.
+ */
 let actions = {
     clone: {
         description: cloneDescription,
-        get fn() { return exports.createForkAndClone; }
+        fn: createForkAndClone
     },
 
     commit: {
         description: commitDescription,
-        get fn() { return exports.commitScreenshots; }
+        fn: commitScreenshots
     },
 
     push: {
         description: pushDescription,
-        get fn() { return exports.pushCommit; }
+        fn: pushCommit
     },
 
     pr: {
         description: prDescription,
-        get fn() { return exports.makePullRequest; }
+        fn: makePullRequest
     }
 };
 
@@ -99,85 +106,51 @@ if (action === undefined || !_.includes(_.keys(actions), action)) {
 }
 
 /**
- * Codeship doesn't natively support getting you the branch number of a pull request
- * because they build as soon as a commit is pushed, not when a PR is opened. So,
- * this searches for any pull requests that match the current branch. If no pull request
- * is open, then a warning text is returned instead.
- */
-let findPullRequestNumber = (branchName) => {
-    var options = {
-        hostname: `api.${projectRepo.hostname}`,
-        path: `/repos${projectRepo.path}/pulls?head=${org}:${branchName}`,
-        method: 'GET',
-        headers: {
-            'User-Agent': 'snappit',
-            'Content-Type': 'application/json',
-            'Authorization': 'token ' + token
-        }
-    };
-
-    return new Promise((resolve, reject) => {
-        let req = https.request(options, res => {
-            var response = [];
-            res.on('data', d => {
-                response.push(d.toString('utf-8'));
-            });
-
-            res.on('end', () => {
-                let pullRequests = JSON.parse(response.join(''));
-                if (pullRequests.length) {
-                    return resolve(pullRequests[0].number);
-                }
-
-                return reject('No pull request has been created against this branch yet');
-            });
-        });
-
-        req.end();
-
-    });
-
-};
-
-/**
  * Supported CI Environments. All this means is that there's some "convenience" vars available
  * to users to construct custom commit messages, pull request title/body contents, etc. They
  * are here because the default behavior is to reference the pull request that snappit is taking
  * screenshots of via a github mention: https://github.com/blog/957-introducing-issue-mentions.
  * The values under each key are under a getter function to prevent javascript from evaluating the contents
  * of those values in environments where it doesn't make sense (such as in local testing).
- *
- * NOTE:
- * Since codeship's pullRequestNumber is fetched via an api call, all `pullRequestNumber`
- * values are returned as promises to ensure a more consistent user experience.
  */
 let supportedCIEnvironments = {
     travis: {
         get name() { return 'travis'; },
         get url() { return 'https://travis-ci.org'; },
         get sha1() { return process.env.TRAVIS_COMMIT_RANGE.slice(43, 50); },
-        get pullRequestNumber() { return Promise.resolve(process.env.TRAVIS_PULL_REQUEST); }
+        get pullRequestNumber() { return process.env.TRAVIS_PULL_REQUEST; },
+        get branch() {
+            // https://graysonkoonce.com/getting-the-current-branch-name-during-a-pull-request-in-travis-ci/
+            if (process.env.TRAVIS_PULL_REQUEST === 'false') {
+                return process.env.TRAVIS_BRANCH;
+            }
+            return findBranchName(this.pullRequestNumber);
+        }
     },
 
     codeship: {
         get name() { return 'codeship'; },
         get url() { return 'https://codeship.io'; },
         get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
-        get pullRequestNumber() { return findPullRequestNumber(currentBranch); },
+        // codeship builds when new commits are pushed, not when pull requests are opened
+        get pullRequestNumber() { return findPullRequestNumber(this.branch); },
+        get branch() { return process.env.CI_BRANCH; }
     },
 
     jenkins: {
         get name() { return 'jenkins-ghprb'; },
         get url() { return 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin'; },
         get sha1() { return process.env.sha1.slice(0, 7); },
-        get pullRequestNumber() { return Promise.resolve(process.env.ghprbPullId); }
+        get pullRequestNumber() { return process.env.ghprbPullId; },
+        get branch() { return process.env.ghprbSourceBranch; }
     },
 
     undefined: {
         get name() { return 'unknown-ci-provider'; },
         get url() { return 'https://github.com/rackerlabs/snappit-mocha-protractor/issues/new'; },
         get sha1() { return 'sha1-unavailable'; },
-        get pullRequestNumber() { return Promise.resolve('pull-request-number-unavailable'); }
+        get pullRequestNumber() { return 'pull-request-number-unavailable'; },
+        get branch() { return 'branch-unavailable'; }
     }
 };
 
@@ -185,7 +158,7 @@ let unknownCIEnvironmentError = `
 Your project is running in an unkown CI environment. You'll need to configure your
 commit messages, title and body without relying on any convenience variables provided
 in this application. This includes the current build's sha1 reference, pull request number,
-or github pull requeest link. You can still get this information by specifying your own commit
+or github pull request link. You can still get this information by specifying your own commit
 messages, title and body by using 'process.env.YOUR_COMMIT_SHA', and other techniques inside
 of the 'snappit' entry of your protractor configuration file. If you don't do this, you'll have
 some default messages appear in for the commit message, pull request body, etc.
@@ -195,11 +168,9 @@ Please report this to
 https://github.com/rackerlabs/snappit-mocha-protractor/issues/new
 
 and specify your CI setup to have it added it to the list of supported environments.
-
-Supported CI environments:
 `;
 
-let currentCIEnvironment = () => {
+function getCurrentCIEnvironment() {
     if (process.env.TRAVIS) {
         return supportedCIEnvironments.travis.name;
     }
@@ -213,6 +184,7 @@ let currentCIEnvironment = () => {
     }
 
     console.log(unknownCIEnvironmentError);
+    console.log('Supported CI environments:');
     _.each(supportedCIEnvironments, (details, name) => {
         // don't print the undefined ci env details
         if (name !== 'undefined') {
@@ -222,22 +194,47 @@ let currentCIEnvironment = () => {
     console.log();
 };
 
-let currentEnvVars = supportedCIEnvironments[currentCIEnvironment()];
+let currentEnvVars = supportedCIEnvironments[getCurrentCIEnvironment()];
+
 // all environments have these vars that are always the same
 let vars = Object.defineProperties(currentEnvVars, {
     repoSlug: {
         get: () => projectRepo.path.slice(1) // drop leading "/" character
-    },
-
-    branch: {
-        get: () => currentBranch
     }
 });
 
-let repositoryExists = (repoUrl) => {
+function repositoryExists(repoUrl) {
     let url = `https://api.${repoUrl.hostname}/repos${repoUrl.path}`;
     let repositoryInfo = JSON.parse(execSync(`curl ${url} 2>/dev/null`).toString('utf-8'));
     return repositoryInfo.message !== 'Not Found';
+};
+
+/**
+ * Travis doesn't natively support getting you the branch name from a build
+ * because they use the same environment variable for both "push" and "pr" builds. So,
+ * this searches for any branch names that match the current pull request number.
+ * If no branch is found, then a warning text is returned instead.
+ */
+function findBranchName(pullRequestNumber) {
+    let url = `https://api.${projectRepo.hostname}/repos${projectRepo.path}/pulls/${pullRequestNumber}`;
+    let pullRequest = JSON.parse(execSync(`curl -H "Authorization: token ${token}" ${url} 2>/dev/null`).toString('utf-8'));
+    if (pullRequest.message === undefined) {
+        return pullRequest.head.ref;
+    }
+};
+
+/**
+ * Codeship doesn't natively support getting you the pull request number from a build
+ * because they build as soon as a commit is pushed, not when a PR is opened. So,
+ * this searches for any pull requests that match the current branch. If no pull request
+ * is open, then a warning text is returned instead.
+ */
+function findPullRequestNumber(branchName) {
+    let url = `https://api.${projectRepo.hostname}/repos${projectRepo.path}/pulls?head=${org}:${branchName}`;
+    let pullRequests = JSON.parse(execSync(`curl -H "Authorization: token ${token}" ${url} 2>/dev/null`).toString('utf-8'));
+    if (pullRequests.length) {
+        return pullRequests[0].number;
+    }
 };
 
 /**
@@ -246,7 +243,7 @@ let repositoryExists = (repoUrl) => {
  * change on the master branch in order for the github API to see changes between a fork's branch and master.
  */
 let createRepository = (repoUrl) => {
-    var data = {
+    let data = {
         name: _.last(repoUrl.path.split('/')),
         auto_init: true
     };
@@ -255,7 +252,7 @@ let createRepository = (repoUrl) => {
         data.team_id = config.snappit.cicd.serviceAccount.teamId;
     }
 
-    var options = {
+    let options = {
         hostname: `api.${repoUrl.hostname}`,
         path: `/orgs/${org}/repos`,
         method: 'POST',
@@ -300,7 +297,7 @@ let createRepository = (repoUrl) => {
  * Perhaps someday that will be a nice feature.
  */
 let forkRepository = (repoUrl) => {
-    var options = {
+    let options = {
         hostname: `api.${repoUrl.hostname}`,
         path: `/repos${repoUrl.path}/forks`,
         method: 'POST',
@@ -330,10 +327,11 @@ let forkRepository = (repoUrl) => {
 let cloneScreenshotsRepo = () => {
     let cloneUrl = `https://${token}@${screenshotsRepo.host}${screenshotsRepo.path}.git`;
     // don't log any of this information out to the console!
-    execSync(`git submodule add -f ${cloneUrl} screenshots > /dev/null`);
+    execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
+    console.log(`Cloned a submodule for screenshots in directory "${config.snappit.screenshotsDirectory}"`);
 };
 
-exports.createForkAndClone = () => {
+function createForkAndClone() {
     if (!repositoryExists(projectRepo)) {
         throw new Error(`Main project repo ${projectRepo.href} does not exist!`);
     }
@@ -358,16 +356,19 @@ exports.createForkAndClone = () => {
                     }, 1000);
                 } while (!repositoryExists(forkedRepo))
             });
+        } else {
+            console.log(`Forked screenshots repository ${forkedRepo.href} already exists.`);
         }
 
         cloneScreenshotsRepo();
     });
 };
 
-let cmd = command => execSync(`${command}`, { stdio: [0, 1, 2] });
-exports.commitScreenshots = () => {
+function commitScreenshots() {
     let cmds = [
+        `pwd`,
         `cd ${config.snappit.screenshotsDirectory}`,
+        `pwd`,
         `git checkout -b ${config.snappit.cicd.messages.branchName(vars)}`,
         `git config user.name "${userName}"`,
         `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
@@ -378,7 +379,7 @@ exports.commitScreenshots = () => {
     cmd(cmds.join('; '));
 };
 
-exports.pushCommit = () => {
+function pushCommit() {
     // pushes to the fork created by the service account by default, not the main screenshots repo
     let repoName = _.last(screenshotsRepo.path.split('/'));
     let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${userName}/${repoName}.git`;
@@ -391,16 +392,16 @@ exports.pushCommit = () => {
     execSync(sensitiveCommand);
 };
 
-exports.makePullRequest = () => {
-    var data = {
+function makePullRequest() {
+    let data = {
         title: config.snappit.cicd.messages.pullRequestTitle(vars),
         body: config.snappit.cicd.messages.pullRequestBody(vars),
         head: `${userName}:${config.snappit.cicd.messages.branchName(vars)}`,
         base: config.snappit.cicd.targetBranch
     };
 
-    var options = {
-        hostname: `api.${projectRepo.hostname}`,
+    let options = {
+        hostname: `api.${screenshotsRepo.hostname}`,
         path: `/repos${screenshotsRepo.path}/pulls`,
         method: 'POST',
         headers: {

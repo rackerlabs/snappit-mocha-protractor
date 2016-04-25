@@ -5,7 +5,7 @@ exports.config = {
     baseUrl: 'https://angularjs.org',
 
     specs: [
-        './spec.js'
+        '../.././spec.js'
     ],
 
     snappit: {
@@ -17,7 +17,7 @@ exports.config = {
         chai.config.truncateThreshold = 0;
         expect = chai.expect;
         browser.driver.manage().window().setSize(1366, 768); // laptop
-        screenshot = require('../index');
+        screenshot = require('../../../index');
     },
 
     capabilities: {

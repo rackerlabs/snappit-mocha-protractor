@@ -5,14 +5,11 @@ exports.config = {
     baseUrl: 'https://angularjs.org',
 
     specs: [
-        './spec.js'
+        '../.././spec.js'
     ],
 
     snappit: {
-        screenshotsDirectory: './screenshots',
-        threshold: 5,
-        defaultResolutions: [[768, 1024], [1024, 768], // tablet
-                             [320, 568], [568, 320]]  // phone
+        disable: true
     },
 
     onPrepare: function () {
@@ -20,11 +17,11 @@ exports.config = {
         chai.config.truncateThreshold = 0;
         expect = chai.expect;
         browser.driver.manage().window().setSize(1366, 768); // laptop
-        screenshot = require('../index');
+        screenshot = require('../../../index');
     },
 
     capabilities: {
-        browserName: 'chrome'
+        browserName: 'firefox'
     },
 
     mochaOpts: {
