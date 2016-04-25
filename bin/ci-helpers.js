@@ -47,7 +47,7 @@ config.snappit.cicd.messages = _.defaults(config.snappit.cicd.messages, {
     },
 
     commitMessage: function (vars) {
-        return `chore(screenshots): Visual diff for ${vars.repoSlug}@${vars.sha1}`;
+        return `chore(screenshots): For ${vars.repoSlug}@${vars.sha1}`;
     },
 
     pullRequestBody: function (vars) {
@@ -413,7 +413,9 @@ function commitScreenshots() {
         `git status -sb`,
         `git commit -m "${config.snappit.cicd.messages.commitMessage(vars)}"`
     ];
-    cmd(cmds.join('; '));
+    try {
+        cmd(cmds.join('; '));
+    } catch (e) { /* Nothing to commit */ }
 };
 
 function pushCommit() {
@@ -454,7 +456,13 @@ function makePullRequest() {
             if (res.statusCode !== 201) {
                 res.on('data', d => { data.push(d.toString('utf-8'))});
                 res.on('end', () => {
-                    throw new Error(`(HTTP ${res.statusCode}) Something went wrong with the pull request:\n${data.join('')}`);
+                    let error = JSON.parse(data).errors[0].message;
+                    if (_.startsWith(error, 'No commits between')) {
+                        // this is fine. No new changes in the screenshots, so no pull request
+                        resolve();
+                    } else {
+                        throw new Error(`(HTTP ${res.statusCode}) Something went wrong with the pull request:\n${data.join('')}`);
+                    }
                 });
             }
             resolve();
