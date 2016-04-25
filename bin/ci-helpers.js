@@ -291,7 +291,8 @@ let forkRepository = (repoUrl) => {
 let cloneScreenshotsRepo = () => {
     let cloneUrl = `https://${token}@${screenshotsRepo.host}${screenshotsRepo.path}.git`;
     // don't log any of this information out to the console!
-    execSync(`git submodule add -f ${cloneUrl} screenshots > /dev/null`);
+    execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
+    console.log(`Cloned a submodule for screenshots in directory "${config.snappit.screenshotsDirectory}"`);
 };
 
 exports.createForkAndClone = () => {
@@ -328,7 +329,9 @@ exports.createForkAndClone = () => {
 let cmd = command => execSync(`${command}`, { stdio: [0, 1, 2] });
 exports.commitScreenshots = () => {
     let cmds = [
+        `pwd`,
         `cd ${config.snappit.screenshotsDirectory}`,
+        `pwd`,
         `git checkout -b ${config.snappit.cicd.messages.branchName(vars)}`,
         `git config user.name "${userName}"`,
         `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
