@@ -99,47 +99,6 @@ if (action === undefined || !_.includes(_.keys(actions), action)) {
 }
 
 /**
- * Codeship doesn't natively support getting you the branch number of a pull request
- * because they build as soon as a commit is pushed, not when a PR is opened. So,
- * this searches for any pull requests that match the current branch. If no pull request
- * is open, then a warning text is returned instead.
- */
-let findPullRequestNumber = (branchName) => {
-    var options = {
-        hostname: `api.${projectRepo.hostname}`,
-        path: `/repos${projectRepo.path}/pulls?head=${org}:${branchName}`,
-        method: 'GET',
-        headers: {
-            'User-Agent': 'snappit',
-            'Content-Type': 'application/json',
-            'Authorization': 'token ' + token
-        }
-    };
-
-    return new Promise((resolve, reject) => {
-        let req = https.request(options, res => {
-            var response = [];
-            res.on('data', d => {
-                response.push(d.toString('utf-8'));
-            });
-
-            res.on('end', () => {
-                let pullRequests = JSON.parse(response.join(''));
-                if (pullRequests.length) {
-                    return resolve(pullRequests[0].number);
-                }
-
-                return reject('No pull request has been created against this branch yet');
-            });
-        });
-
-        req.end();
-
-    });
-
-};
-
-/**
  * Supported CI Environments. All this means is that there's some "convenience" vars available
  * to users to construct custom commit messages, pull request title/body contents, etc. They
  * are here because the default behavior is to reference the pull request that snappit is taking
@@ -156,21 +115,22 @@ let supportedCIEnvironments = {
         get name() { return 'travis'; },
         get url() { return 'https://travis-ci.org'; },
         get sha1() { return process.env.TRAVIS_COMMIT_RANGE.slice(43, 50); },
-        get pullRequestNumber() { return Promise.resolve(process.env.TRAVIS_PULL_REQUEST); }
+        get pullRequestNumber() { return process.env.TRAVIS_PULL_REQUEST; }
     },
 
     codeship: {
         get name() { return 'codeship'; },
         get url() { return 'https://codeship.io'; },
         get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
-        get pullRequestNumber() { return findPullRequestNumber(currentBranch); },
+        // codeship builds when new commits are pushed, not when pull requests are opened
+        get pullRequestNumber() { return null; },
     },
 
     jenkins: {
         get name() { return 'jenkins-ghprb'; },
         get url() { return 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin'; },
         get sha1() { return process.env.sha1.slice(0, 7); },
-        get pullRequestNumber() { return Promise.resolve(process.env.ghprbPullId); }
+        get pullRequestNumber() { return process.env.ghprbPullId; }
     },
 
     undefined: {
@@ -232,6 +192,7 @@ let vars = Object.defineProperties(currentEnvVars, {
     branch: {
         get: () => currentBranch
     }
+
 });
 
 let repositoryExists = (repoUrl) => {
@@ -400,7 +361,7 @@ exports.makePullRequest = () => {
     };
 
     var options = {
-        hostname: `api.${projectRepo.hostname}`,
+        hostname: `api.${screenshotsRepo.hostname}`,
         path: `/repos${screenshotsRepo.path}/pulls`,
         method: 'POST',
         headers: {

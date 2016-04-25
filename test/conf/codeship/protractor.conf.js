@@ -35,11 +35,11 @@ exports.config = {
                 },
 
                 pullRequestBody: function (vars) {
-                    return `See ${vars.repoSlug}#${vars.pullRequestNumber}`;
+                    return `See ${vars.repoSlug}:${vars.branch}. Pull request number unknown.`;
                 },
 
                 pullRequestTitle: function (vars) {
-                    return `Screenshots for ${vars.repoSlug}#${vars.pullRequestNumber}`;
+                    return `Screenshots for ${vars.repoSlug}:${vars.branch}`;
                 }
             }
         }
