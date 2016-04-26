@@ -21,27 +21,8 @@ exports.config = {
                 userEmail: 'comeatmebro@users.noreply.github.com',
                 teamId: 442108
             },
-            githubTokenEnvironmentVariable: 'ghToken',
             screenshotsRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor-screenshots-travis',
-            projectRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor',
-            targetBranch: 'master',
-            messages: {
-                branchName: function (vars) {
-                    return `SHA-${vars.sha1}`;
-                },
-
-                commitMessage: function (vars) {
-                    return `chore(screenshots): Visual diff for ${vars.sha1}`;
-                },
-
-                pullRequestBody: function (vars) {
-                    return `See ${vars.repoSlug}#${vars.pullRequestNumber}`;
-                },
-
-                pullRequestTitle: function (vars) {
-                    return `Screenshots for ${vars.repoSlug}#${vars.pullRequestNumber}`;
-                }
-            }
+            projectRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor'
         }
     },
 

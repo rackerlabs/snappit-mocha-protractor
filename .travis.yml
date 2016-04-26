@@ -18,7 +18,7 @@ install:
 before_script:
 - export DISPLAY=:99.0
 - sh -e /etc/init.d/xvfb start
-- nohup ./node_modules/.bin/webdriver-manager start >/dev/null 2>&1 &
+- nohup ./node_modules/.bin/webdriver-manager start --standalone >/dev/null 2>&1 &
 - sleep 5 # wait for selenium server to actually come up
 script:
 - npm test
