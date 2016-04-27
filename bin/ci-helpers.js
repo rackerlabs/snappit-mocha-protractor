@@ -4,12 +4,12 @@
 
 let execSync = require('child_process').execSync;
 let https = require('https');
-let path = require('path');
 let url = require('url');
 
 let _ = require('lodash');
 
 let descriptions = require('./descriptions');
+let configOptions = require('./config');
 
 let args = process.argv.slice(2);
 let action = args[1];
@@ -18,9 +18,7 @@ if (args[0] === undefined) {
     descriptions.showHelpTextAndQuit('Your first argument must be the path to your protractor.conf.js file.');
 };
 
-let config = require(path.join(process.cwd(), args[0])).config;
-
-config = setConfigDefaults(config);
+let config = configOptions.fromProtractorConf(args[0]);
 
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
 let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
@@ -335,47 +333,6 @@ function makePullRequest() {
 
         req.end();
     });
-};
-
-function setConfigDefaults(config) {
-    if (config.snappit.cicd === undefined) {
-        config.snappit.cicd = {};
-    }
-
-    config.snappit.cicd = _.defaults(config.snappit.cicd, {
-        githubTokenEnvironmentVariable: 'ghToken',
-        targetBranch: 'master'
-    });
-
-    if (config.snappit.cicd.messages === undefined) {
-        config.snappit.cicd.messages = {};
-    }
-
-    config.snappit.cicd.messages = _.defaults(config.snappit.cicd.messages, {
-        branchName: function (vars) {
-            return `SHA-${vars.sha1}`;
-        },
-
-        commitMessage: function (vars) {
-            return `chore(screenshots): For ${vars.repoSlug}@${vars.sha1}`;
-        },
-
-        pullRequestBody: function (vars) {
-            if (vars.pullRequestNumber) {
-                return `See ${vars.repoSlug}#${vars.pullRequestNumber}.`
-            }
-            return `See ${vars.repoSlug}@${vars.sha1}. Pull request number unknown.`;
-        },
-
-        pullRequestTitle: function (vars) {
-            if (vars.pullRequestNumber) {
-                return `Screenshots for ${vars.repoSlug}#${vars.pullRequestNumber}`
-            }
-            return `Screenshots for ${vars.repoSlug}@${vars.sha1}`;
-        }
-    });
-
-    return config;
 };
 
 function cmd(command) {
