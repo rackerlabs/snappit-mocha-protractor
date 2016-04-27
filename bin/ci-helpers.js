@@ -9,11 +9,13 @@ let url = require('url');
 
 let _ = require('lodash');
 
+let descriptions = require('./descriptions');
+
 let args = process.argv.slice(2);
 let action = args[1];
 
 if (args[0] === undefined) {
-    showHelpTextAndQuit('Your first argument must be the path to your protractor.conf.js file.');
+    descriptions.showHelpTextAndQuit('Your first argument must be the path to your protractor.conf.js file.');
 };
 
 let config = require(path.join(process.cwd(), args[0])).config;
@@ -26,75 +28,36 @@ let org = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
 let userName = config.snappit.cicd.serviceAccount.userName;
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
 
-// todo -- break this out into a readme and replace all of these with links to that readme
-let cloneDescription = `
-Sets up and clones the screenshots repository into the main project repository.
-This includes creating the screenshots repo first, if it does not exist.
-It will then create a fork of this screenshots repository, if that does not exist.
-Finally, it clones the screenshots repository (as a submodule) into the directory set in 'config.snappit.cicd.screenshotsDirectory'.
-Run this command before you have run your visual regression test using protractor.
-`;
-
-let commitDescription = `
-Commit all changed screenshots to the submodule on the branch name specified in 'config.snappit.cicd.messages.branchName'.
-Will use the commit message format specified in the config entry for 'config.snappit.cicd.messages.commitMessage'.
-Run this command after you have run your visual regression test using protractor.
-`;
-
-let pushDescription = `
-Push up the changes introduced in the "commit" step, on the branch specified in 'config.snappit.cicd.messages.branchName'.
-The changes are pushed to the fork of the screenshots repository.
-`;
-
-let prDescription = `
-Create a pull request against the target branch of the screenshots repository, specified in 'config.snappit.cicd.targetBranch'.
-The pull request originates from the fork that the service account created in the "clone" step.
-The pull request title is configurable from the 'config.snappit.cicd.messages.pullRequestTitle' entry.
-The pull request body is configurable from the 'config.snappit.cicd.messages.pullRequestBody' entry.
-`;
-
 /**
  * Actions that are supported by the ci helpers. If you want to add new functions, this is the place to do it.
  * All action references throughout the help text, etc., are generated via this object. Define all actions here.
  */
 let actions = {
     clone: {
-        description: cloneDescription,
+        description: descriptions.cloneDescription,
         fn: createForkAndClone
     },
 
     commit: {
-        description: commitDescription,
+        description: descriptions.commitDescription,
         fn: commitScreenshots
     },
 
     push: {
-        description: pushDescription,
+        description: descriptions.pushDescription,
         fn: pushCommit
     },
 
     pr: {
-        description: prDescription,
+        description: descriptions.prDescription,
         fn: makePullRequest
     }
 };
 
-let helpText = `
-Usage: snappit-ci configFile [${_.keys(actions).join('|')}]
-
-These actions are meant to be run in order, during different steps in your end to end tests.
-
-Example:
-
-\`npm bin\`/snappit-ci protractor.conf.js clone
-\`npm bin\`/protractor
-\`npm bin\`/snappit-ci protractor.conf.js commit
-\`npm bin\`/snappit-ci protractor.conf.js push
-\`npm bin\`/snappit-ci protractor.conf.js pr
-`;
 if (require.main === module) {
     if (action === undefined || !_.includes(_.keys(actions), action)) {
-        showHelpTextAndQuit(helpText, actions);
+        // pass in `undefined` here to use default help text
+        descriptions.showHelpTextAndQuit(undefined, actions);
     }
 
     actions[action].fn();
@@ -155,22 +118,6 @@ function getSupportedCIEnvironments() {
     };
 };
 
-let unknownCIEnvironmentError = `
-Your project is running in an unkown CI environment. You'll need to configure your
-commit messages, title and body without relying on any convenience variables provided
-in this application. This includes the current build's sha1 reference, pull request number,
-or github pull request link. You can still get this information by specifying your own commit
-messages, title and body by using 'process.env.YOUR_COMMIT_SHA', and other techniques inside
-of the 'snappit' entry of your protractor configuration file. If you don't do this, you'll have
-some default messages appear in for the commit message, pull request body, etc.
-
-Please report this to
-
-https://github.com/rackerlabs/snappit-mocha-protractor/issues/new
-
-and specify your CI setup to have it added it to the list of supported environments.
-`;
-
 function getCurrentCIEnvironment() {
     if (process.env.TRAVIS) {
         return getSupportedCIEnvironments().travis.name;
@@ -179,7 +126,7 @@ function getCurrentCIEnvironment() {
     } else if (process.env.sha1) {
         return getSupportedCIEnvironments().jenkins.name;
     } else {
-        console.log(unknownCIEnvironmentError);
+        console.log(descriptions.unknownCIEnvironmentError);
         console.log('Supported CI environments:');
         _.each(getSupportedCIEnvironments(), (details, name) => {
             // don't print the undefined ci env details
@@ -433,15 +380,6 @@ function setConfigDefaults(config) {
 
 function cmd(command) {
     execSync(`${command}`, { stdio: [0, 1, 2] })
-};
-
-function showHelpTextAndQuit(helpText, actions) {
-    console.log(helpText);
-    if (actions) {
-        console.log('Actions:');
-        _.each(actions, (details, a) => { console.log(a + ':', details.description) });
-    }
-    process.exit(0);
 };
 
 function repositoryExists(repoUrl) {
