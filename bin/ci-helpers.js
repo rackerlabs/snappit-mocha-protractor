@@ -341,7 +341,7 @@ function cmd(command) {
 
 function repositoryExists(repoUrl) {
     let url = `https://api.${repoUrl.hostname}/repos${repoUrl.path}`;
-    let repositoryInfo = JSON.parse(execSync(`curl ${url} 2>/dev/null`).toString('utf-8'));
+    let repositoryInfo = JSON.parse(execSync(`curl "Authorization: token ${token}" ${url} 2>/dev/null`).toString('utf-8'));
     return repositoryInfo.message !== 'Not Found';
 };
 
