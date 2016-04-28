@@ -11,7 +11,19 @@ let setConfigDefaults = config => {
 
     config.snappit.cicd = _.defaults(config.snappit.cicd, {
         githubTokenEnvironmentVariable: 'ghToken',
-        targetBranch: 'master'
+        targetBranch: 'master',
+        privateRepo: false,
+        ignoreSSLWarnings: false,
+        githubEnterprise: false
+    });
+
+    if (config.snappit.cicd.serviceAccount === undefined) {
+        config.snappit.cicd.serviceAccount = {};
+    }
+
+    config.snappit.cicd.serviceAccount = _.defaults(config.snappit.cicd.serviceAccount, {
+        userEmail: '', // this can be blank, but should be set anyway
+        teamId: undefined
     });
 
     if (config.snappit.cicd.messages === undefined) {
