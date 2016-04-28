@@ -9,19 +9,7 @@ exports.config = {
     ],
 
     snappit: {
-        screenshotsDirectory: './screenshots',
-        threshold: 5,
-        defaultResolutions: [[768, 1024], [1024, 768], // tablet
-                             [320, 568], [568, 320]],  // phone
-        cicd: {
-            serviceAccount: {
-                userName: 'comeatmebro',
-                userEmail: 'comeatmebro@users.noreply.github.com',
-                teamId: 442108
-            },
-            screenshotsRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor-screenshots-travis',
-            projectRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor'
-        }
+        disable: true
     },
 
     onPrepare: function () {

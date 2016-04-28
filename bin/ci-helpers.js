@@ -43,12 +43,12 @@ let actions = {
 
     push: {
         description: descriptions.pushDescription,
-        fn: pushCommit
+        fn: () => pushCommit(screenshotsRepo)
     },
 
     pr: {
         description: descriptions.prDescription,
-        fn: makePullRequest
+        fn: () => makePullRequest(screenshotsRepo)
     }
 };
 
@@ -82,7 +82,7 @@ function getSupportedCIEnvironments() {
                 if (process.env.TRAVIS_PULL_REQUEST === 'false') {
                     return process.env.TRAVIS_BRANCH;
                 }
-                return findBranchName(this.pullRequestNumber);
+                return findBranchName(projectRepo, this.pullRequestNumber);
             }
         },
 
@@ -92,11 +92,11 @@ function getSupportedCIEnvironments() {
             get repoSlug() { return projectRepo.path.slice(1) },
             get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
             // codeship builds when new commits are pushed, not when pull requests are opened
-            get pullRequestNumber() { return findPullRequestNumber(this.branch); },
+            get pullRequestNumber() { return findPullRequestNumber(projectRepo, this.branch); },
             get branch() { return process.env.CI_BRANCH; }
         },
 
-        jenkins: {
+        'jenkins-ghprb': {
             get name() { return 'jenkins-ghprb'; },
             get url() { return 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin'; },
             get repoSlug() { return projectRepo.path.slice(1) },
@@ -119,7 +119,7 @@ function getSupportedCIEnvironments() {
 function getCurrentCIEnvironment() {
     if (process.env.TRAVIS) {
         return getSupportedCIEnvironments().travis.name;
-    } else if (process.env.CI_NAME === 'codeship') {
+    } else if (process.env.CI_NAME) {
         return getSupportedCIEnvironments().codeship.name;
     } else if (process.env.sha1) {
         return getSupportedCIEnvironments().jenkins.name;
@@ -141,9 +141,11 @@ function getVars() {
 };
 
 function createRepository(repoUrl) {
+    let u =  buildApiUrl(repoUrl, `/orgs/${org}/repos`);
     let data = {
         name: _.last(repoUrl.path.split('/')),
-        auto_init: true
+        auto_init: true,
+        private: config.snappit.cicd.privateRepo
     };
 
     if (config.snappit.cicd.serviceAccount.teamId !== undefined) {
@@ -151,8 +153,8 @@ function createRepository(repoUrl) {
     }
 
     let options = {
-        hostname: `api.${repoUrl.hostname}`,
-        path: `/orgs/${org}/repos`,
+        hostname: `${u.hostname}`,
+        path: u.path,
         method: 'POST',
         headers: {
             'User-Agent': 'snappit',
@@ -195,9 +197,10 @@ function createRepository(repoUrl) {
  * Perhaps someday that will be a nice feature.
  */
 function forkRepository(repoUrl) {
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/forks`);
     let options = {
-        hostname: `api.${repoUrl.hostname}`,
-        path: `/repos${repoUrl.path}/forks`,
+        hostname: u.hostname,
+        path: u.path,
         method: 'POST',
         headers: {
             'User-Agent': 'snappit',
@@ -222,16 +225,16 @@ function forkRepository(repoUrl) {
     });
 };
 
-function cloneScreenshotsRepo() {
-    let cloneUrl = `https://${token}@${screenshotsRepo.host}${screenshotsRepo.path}.git`;
+function cloneRepo(repoUrl) {
+    let cloneUrl = `https://${token}@${repoUrl.host}${repoUrl.path}.git`;
     // don't log any of this information out to the console!
     execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
-    console.log(`Cloned a submodule for screenshots in directory "${config.snappit.screenshotsDirectory}"`);
+    console.log(`Cloned a submodule for screenshots in directory "${repoUrl.href}"`);
 };
 
 function createForkAndClone() {
     if (!repositoryExists(projectRepo)) {
-        throw new Error(`Main project repo ${projectRepo.href} does not exist!`);
+        throw new Error(`Main project repo ${projectRepo.href} does not exist! Create it first, then retry.`);
     }
 
     let repoAction = Promise.resolve(`Repository ${screenshotsRepo.href} already exists.`);
@@ -258,7 +261,7 @@ function createForkAndClone() {
             console.log(`Forked screenshots repository ${forkedRepo.href} already exists.`);
         }
 
-        cloneScreenshotsRepo();
+        cloneRepo(screenshotsRepo);
     });
 };
 
@@ -292,7 +295,8 @@ function pushCommit() {
     execSync(sensitiveCommand);
 };
 
-function makePullRequest() {
+function makePullRequest(repoUrl) {
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls`);
     let data = {
         title: config.snappit.cicd.messages.pullRequestTitle(getVars()),
         body: config.snappit.cicd.messages.pullRequestBody(getVars()),
@@ -301,8 +305,8 @@ function makePullRequest() {
     };
 
     let options = {
-        hostname: `api.${screenshotsRepo.hostname}`,
-        path: `/repos${screenshotsRepo.path}/pulls`,
+        hostname: u.hostname,
+        path: u.path,
         method: 'POST',
         headers: {
             'User-Agent': 'snappit',
@@ -339,9 +343,31 @@ function cmd(command) {
     execSync(`${command}`, { stdio: [0, 1, 2] })
 };
 
+/**
+ * Enterprise github has a different url signature for api requests.
+ */
+function buildApiUrl(repoUrl, resource) {
+    if (config.snappit.cicd.githubEnterprise) {
+        return url.parse(`https://${repoUrl.hostname}/api/v3${resource}`);
+    }
+
+    return url.parse(`https://api.${repoUrl.hostname}${resource}`);
+};
+
+function buildCurlFlags() {
+    let flags = [
+        `-H "Authorization: token ${token}"`,
+        '-H "User-Agent: snappit"'
+    ];
+    if (config.snappit.cicd.ignoreSSLWarnings) {
+        flags.unshift('-k');
+    }
+    return flags.join(' ');
+};
+
 function repositoryExists(repoUrl) {
-    let url = `https://api.${repoUrl.hostname}/repos${repoUrl.path}`;
-    let repositoryInfo = JSON.parse(execSync(`curl "Authorization: token ${token}" ${url} 2>/dev/null`).toString('utf-8'));
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}`);
+    let repositoryInfo = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
     return repositoryInfo.message !== 'Not Found';
 };
 
@@ -351,9 +377,9 @@ function repositoryExists(repoUrl) {
  * this searches for any branch names that match the current pull request number.
  * If no branch is found, then a warning text is returned instead.
  */
-function findBranchName(pullRequestNumber) {
-    let url = `https://api.${projectRepo.hostname}/repos${projectRepo.path}/pulls/${pullRequestNumber}`;
-    let pullRequest = JSON.parse(execSync(`curl -H "Authorization: token ${token}" ${url} 2>/dev/null`).toString('utf-8'));
+function findBranchName(repoUrl, pullRequestNumber) {
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`);
+    let pullRequest = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
     if (pullRequest.message === undefined) {
         return pullRequest.head.ref;
     }
@@ -365,9 +391,9 @@ function findBranchName(pullRequestNumber) {
  * this searches for any pull requests that match the current branch. If no pull request
  * is open, then a warning text is returned instead.
  */
-function findPullRequestNumber(branchName) {
-    let url = `https://api.${projectRepo.hostname}/repos${projectRepo.path}/pulls?head=${org}:${branchName}`;
-    let pullRequests = JSON.parse(execSync(`curl -H "Authorization: token ${token}" ${url} 2>/dev/null`).toString('utf-8'));
+function findPullRequestNumber(repoUrl, branchName) {
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${org}:${branchName}`);
+    let pullRequests = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
     if (pullRequests.length) {
         return pullRequests[0].number;
     }

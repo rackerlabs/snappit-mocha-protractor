@@ -14,13 +14,15 @@ exports.config = {
         defaultResolutions: [[768, 1024], [1024, 768], // tablet
                              [320, 568], [568, 320]],  // phone
         cicd: {
+            githubEnvironmentVariableToken: 'ghEnterpriseToken',
+            githubEnterprise: true,
+            ignoreSSLWarnings: true,
             serviceAccount: {
-                userName: 'comeatmebro',
-                userEmail: 'comeatmebro@users.noreply.github.com',
-                teamId: 442108
+                userName: 'rt-inova-encoresvc',
+                teamId: 1567
             },
-            screenshotsRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor-screenshots-travis',
-            projectRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor'
+            screenshotsRepo: 'https://github.rackspace.com/EncoreUI/snappit-mocha-protractor-screenshots-jenkins-enterprise',
+            projectRepo: 'https://rackspace.com/rackerlabs/snappit-mocha-protractor'
         }
     },
 
