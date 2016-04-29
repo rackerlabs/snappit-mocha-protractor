@@ -96,8 +96,8 @@ function getSupportedCIEnvironments() {
             get branch() { return process.env.CI_BRANCH; }
         },
 
-        'jenkins-ghprb': {
-            get name() { return 'jenkins-ghprb'; },
+        jenkins: {
+            get name() { return 'jenkins'; },
             get url() { return 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin'; },
             get repoSlug() { return projectRepo.path.slice(1) },
             get sha1() { return process.env.sha1.slice(0, 7); },
