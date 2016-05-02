@@ -18,8 +18,8 @@ exports.config = {
                 userName: 'rt-inova-encoresvc',
                 teamId: 1569
             },
-            screenshotsRepo: 'https://github.rackspace.com/EncoreScreenshots/snappit-mocha-protractor',
-            projectRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor'
+            screenshotsRepo: 'https://github.rackspace.com/EncoreScreenshots/snappit-mocha-protractor-screenshots',
+            projectRepo: 'https://github.rackspace.com/EncoreScreenshots/snappit-mocha-protractor'
         }
     },
 
