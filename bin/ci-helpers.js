@@ -74,7 +74,7 @@ function getSupportedCIEnvironments() {
         travis: {
             get name() { return 'travis'; },
             get url() { return 'https://travis-ci.org'; },
-            get repoSlug() { return projectRepo.path.slice(1) },
+            get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return process.env.TRAVIS_COMMIT_RANGE.slice(43, 50); },
             get pullRequestNumber() { return process.env.TRAVIS_PULL_REQUEST; },
             get branch() {
@@ -89,7 +89,7 @@ function getSupportedCIEnvironments() {
         codeship: {
             get name() { return 'codeship'; },
             get url() { return 'https://codeship.io'; },
-            get repoSlug() { return projectRepo.path.slice(1) },
+            get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
             // codeship builds when new commits are pushed, not when pull requests are opened
             get pullRequestNumber() { return findPullRequestNumber(projectRepo, this.branch); },
@@ -99,16 +99,16 @@ function getSupportedCIEnvironments() {
         jenkins: {
             get name() { return 'jenkins'; },
             get url() { return 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin'; },
-            get repoSlug() { return projectRepo.path.slice(1) },
-            get sha1() { return process.env.sha1.slice(0, 7); },
-            get pullRequestNumber() { return process.env.ghprbPullId; },
-            get branch() { return process.env.ghprbSourceBranch; }
+            get repoSlug() { return projectRepo.path.slice(1); },
+            get sha1() { return findSha(projectRepo, this.pullRequestNumber).slice(0, 7); },
+            get pullRequestNumber() { return process.env.sha1.match(/pr\/(\d+)\/merge/)[1]; },
+            get branch() { return findBranchName(projectRepo, this.pullRequestNumber); }
         },
 
         undefined: {
             get name() { return 'unknown-ci-provider'; },
             get url() { return 'https://github.com/rackerlabs/snappit-mocha-protractor/issues/new'; },
-            get repoSlug() { return projectRepo.path.slice(1) },
+            get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return 'sha1-unavailable'; },
             get pullRequestNumber() { return 'pull-request-number-unavailable'; },
             get branch() { return 'branch-unavailable'; }
@@ -373,7 +373,8 @@ function repositoryExists(repoUrl) {
 
 /**
  * Travis doesn't natively support getting you the branch name from a build
- * because they use the same environment variable for both "push" and "pr" builds. So,
+ * because they use the same environment variable for both "push" and "pr" builds.
+ * Jenkins only exposes a singular pull request number as well. So,
  * this searches for any branch names that match the current pull request number.
  * If no branch is found, then a warning text is returned instead.
  */
@@ -388,13 +389,26 @@ function findBranchName(repoUrl, pullRequestNumber) {
 /**
  * Codeship doesn't natively support getting you the pull request number from a build
  * because they build as soon as a commit is pushed, not when a PR is opened. So,
- * this searches for any pull requests that match the current branch. If no pull request
- * is open, then a warning text is returned instead.
+ * this searches for any pull requests that match the current branch.
  */
 function findPullRequestNumber(repoUrl, branchName) {
     let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${org}:${branchName}`);
     let pullRequests = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
     if (pullRequests.length) {
         return pullRequests[0].number;
+    }
+};
+
+/**
+ * Jenkins pull request builder, when set up according to the readme instructions,
+ * https://github.com/jenkinsci/ghprb-plugin#creating-a-job, will only expose a single
+ * "sha1" environment variable, which isn't even a sha1. It's the string "/{REMOTE}/pr/{NUMBER}/merge".
+ * All information regarding commit shas, branch names, etc., are pulled from github's API using this PR number.
+ */
+function findSha(repoUrl, pullRequestNumber) {
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`;
+    let pullRequest = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    if (pullRequest.message === undefined) {
+        return pullRequest.head.sha;
     }
 };
