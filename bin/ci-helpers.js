@@ -22,9 +22,14 @@ let config = configOptions.fromProtractorConf(args[0]);
 
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
 let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
-let org = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+let projectOrg = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+let screenshotsOrg = screenshotsRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
 let userName = config.snappit.cicd.serviceAccount.userName;
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
+
+let insecureAgent = new https.Agent({
+    rejectUnauthorized: false
+});
 
 /**
  * Actions that are supported by the ci helpers. If you want to add new functions, this is the place to do it.
@@ -141,7 +146,7 @@ function getVars() {
 };
 
 function createRepository(repoUrl) {
-    let u =  buildApiUrl(repoUrl, `/orgs/${org}/repos`);
+    let u =  buildApiUrl(repoUrl, `/orgs/${screenshotsOrg}/repos`);
     let data = {
         name: _.last(repoUrl.path.split('/')),
         auto_init: true,
@@ -153,7 +158,7 @@ function createRepository(repoUrl) {
     }
 
     let options = {
-        hostname: `${u.hostname}`,
+        hostname: u.hostname,
         path: u.path,
         method: 'POST',
         headers: {
@@ -163,16 +168,19 @@ function createRepository(repoUrl) {
         }
     };
 
+    if (config.snappit.ignoreSSLWarnings) {
+        options.agent = insecureAgent;
+    }
+
     return new Promise((resolve, reject) => {
         let req = https.request(options, res => {
+            var data = [];
+            res.on('data', d => { data.push(d.toString('utf-8'))});
             if (res.statusCode !== 201) {
-                var data = [];
-                res.on('data', d => { data.push(d.toString('utf-8'))});
                 res.on('end', () => {
                     throw new Error(`(HTTP ${res.statusCode}) Something went wrong while creating the repository ${repoUrl.href}:\n${data.join('')}`);
                 });
             }
-
             res.on('end', () => {
                 if (!repositoryExists(repoUrl)) {
                     do {
@@ -208,6 +216,10 @@ function forkRepository(repoUrl) {
             'Authorization': 'token ' + token
         }
     };
+
+    if (config.snappit.ignoreSSLWarnings) {
+        options.agent = insecureAgent;
+    }
 
     return new Promise((resolve, reject) => {
         let req = https.request(options, res => {
@@ -315,6 +327,10 @@ function makePullRequest(repoUrl) {
         }
     };
 
+    if (config.snappit.ignoreSSLWarnings) {
+        options.agent = insecureAgent;
+    }
+
     return new Promise((resolve, reject) => {
         let req = https.request(options, res => {
             var data = [];
@@ -347,7 +363,8 @@ function cmd(command) {
  * Enterprise github has a different url signature for api requests.
  */
 function buildApiUrl(repoUrl, resource) {
-    if (config.snappit.cicd.githubEnterprise) {
+    if (repoUrl.hostname !== 'github.com') {
+        // github enterprise
         return url.parse(`https://${repoUrl.hostname}/api/v3${resource}`);
     }
 
@@ -392,7 +409,7 @@ function findBranchName(repoUrl, pullRequestNumber) {
  * this searches for any pull requests that match the current branch.
  */
 function findPullRequestNumber(repoUrl, branchName) {
-    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${org}:${branchName}`);
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${projectOrg}:${branchName}`);
     let pullRequests = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
     if (pullRequests.length) {
         return pullRequests[0].number;

@@ -13,15 +13,13 @@ exports.config = {
         threshold: 5,
         defaultResolutions: [[1366, 768]],
         cicd: {
-            githubEnvironmentVariableToken: 'ghEnterpriseToken',
-            githubEnterprise: true,
-            ignoreSSLWarnings: true,
+            githubTokenEnvironmentVariable: 'ghEnterpriseToken',
             serviceAccount: {
                 userName: 'rt-inova-encoresvc',
-                teamId: 1567
+                teamId: 1569
             },
-            screenshotsRepo: 'https://github.rackspace.com/EncoreUI/snappit-mocha-protractor-screenshots-jenkins-enterprise',
-            projectRepo: 'https://rackspace.com/rackerlabs/snappit-mocha-protractor'
+            screenshotsRepo: 'https://github.rackspace.com/EncoreScreenshots/snappit-mocha-protractor',
+            projectRepo: 'https://github.com/rackerlabs/snappit-mocha-protractor'
         }
     },
 
