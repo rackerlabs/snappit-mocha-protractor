@@ -406,7 +406,7 @@ function findPullRequestNumber(repoUrl, branchName) {
  * All information regarding commit shas, branch names, etc., are pulled from github's API using this PR number.
  */
 function findSha(repoUrl, pullRequestNumber) {
-    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`;
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`);
     let pullRequest = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
     if (pullRequest.message === undefined) {
         return pullRequest.head.sha;
