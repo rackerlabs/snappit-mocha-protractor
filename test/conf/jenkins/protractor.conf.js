@@ -11,10 +11,7 @@ exports.config = {
     snappit: {
         screenshotsDirectory: './screenshots',
         threshold: 5,
-        disable: false,
-        logWarnings: true,
-        defaultResolutions: [[768, 1024], [1024, 768], // tablet
-                             [320, 568], [568, 320]],  // phone
+        defaultResolutions: [[1366, 768]],
         cicd: {
             serviceAccount: {
                 userName: 'comeatmebro',
