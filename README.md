@@ -110,7 +110,7 @@ Finally, we return to the default screen size from the other tests, and take one
 
 ![Original sized screenshot](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1366x0768-By(css selector, .center.stage-buttons).png)
 
-**Note**: Chrome can only support widths as low as 400px. Firefox can only go as low as 335px.
+**Note**: Chrome can only support widths as low as 349px. Firefox can only go as low as 320px.
 
 If you find yourself needing to take a picture at several resolutions many times, then look into configuring `screenshot` to automatically take those at every call to `screenshot.snap`.
 
