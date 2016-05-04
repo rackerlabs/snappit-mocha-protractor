@@ -32,7 +32,7 @@ See http://brew.sh/ for more information.
 `;
 
 let noInstallerAvailableMessage = installCommands => { return `
-You do not have one of the following supported installers available: ${_.keys(installCommands).join(', ')}
+You do not have one of the following supported installers available: ${Object.keys(installCommands).join(', ')}
 Please refer to https://github.com/Automattic/node-canvas#installation for more information on setting up dependencies
 ` };
 
@@ -44,7 +44,7 @@ sudo ${installer.command}
 `; };
 
 let detectPackageManager = () => {
-    var installedPackageManagers = _.map(_.keys(module.exports.installCommands), installCommand => {
+    var installedPackageManagers = Object.keys(module.exports.installCommands).map(installCommand => {
         try {
             let installer = child_process.execSync(`which ${installCommand}`).toString('utf-8').trim();
             console.log(`${installer} detected`);
@@ -52,7 +52,7 @@ let detectPackageManager = () => {
         } catch (e) {}
     });
 
-    return _.first(_.compact(installedPackageManagers));
+    return installedPackageManagers.filter(i => i !== undefined)[0];
 };
 
 exports.downloadDeps = (bufferOutput) => {
