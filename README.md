@@ -96,7 +96,21 @@ The first call to `screenshot.snap` in the example above contains a list of widt
 screenshot.snap(this, $('.center.stage-buttons'), { resolutions: [[768, 1024], [320, 568]] });
 ```
 
-**Note**: Chrome can only support widths as low as 400px. Firefox can only go as low as 335px.
+*768x1024*
+
+![Tablet sized screenshot](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0768x1024-By(css%20selector%2C%20.center.stage-buttons).png)
+
+*320x568*
+
+![Mobile sized screenshot](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/firefox/test/spec/Angular-JS-should-be-on-the-right-page/0320x0568-By(css selector, .center.stage-buttons).png)
+
+Finally, we return to the default screen size from the other tests, and take one last screenshot.
+
+*1366x768*
+
+![Original sized screenshot](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/firefox/test/spec/Angular-JS-should-be-on-the-right-page/1366x0768-By(css selector, .center.stage-buttons).png)
+
+**Note**: Chrome can only support widths as low as 349px. Firefox can only go as low as 320px.
 
 If you find yourself needing to take a picture at several resolutions many times, then look into configuring `screenshot` to automatically take those at every call to `screenshot.snap`.
 
@@ -133,13 +147,23 @@ If your element isn't visible when `screenshot.snap` is called, depending on you
 
 Firefox's unrendered areas are unpainted, but drawn with an interesting monochromatic scheme.
 
+![Unrendered area in a Firefox screenshot](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/firefox/test/spec/Angular-JS-should-have-a-navigation-section-at-the-top/0320x0568-By(css selector, .navbar-inner .container).png)
+
 Chrome's unrendered areas are completely blacked out.
+
+![Unrendered area in a Chrome screenshot](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/chrome/test/spec/Angular-JS-should-have-a-navigation-section-at-the-top/0349x0568-By(css selector, .navbar-inner .container).png)
 
 ## A word about full size screenshots
 
 Chrome screenshots that take up the entire screen are not like Firefox's. Firefox will capture the entire screen, even parts of it that are not currently viewable. Chrome will not!
 
 Because of this, and possibly other reasons, taking screenshots with Chrome is *significantly* faster than Firefox. This test suite runs in about 50 seconds in Firefox, and 11 seconds in Chrome!
+
+Here is a "full-screen" screenshot taken with Chrome.
+
+![Large full screen image taken with Chrome](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/chrome/test/spec/Angular-JS-Tutorial-should-have-an-odd-title/0768x1024-full-screen.png)
+
+And this is what Firefox reports for a large, full-page screenshot on a tablet. [I'll just link to it](https://raw.githubusercontent.com/rackerlabs/snappit-mocha-protractor-screenshots-codeship/master/firefox/test/spec/Angular-JS-Tutorial-should-have-an-odd-title/0768x1024-full-screen.png) because it really is that large.
 
 ## Promoting code reuse
 
