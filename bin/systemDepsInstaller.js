@@ -4,8 +4,6 @@
 
 const child_process = require('child_process');
 
-const _ = require('lodash');
-
 // regexes exported to make testing easier (they're overwritten in the tests)
 module.exports.isWindowsRegex = /^win/;
 module.exports.isMacRegex = /^darwin/;
