@@ -511,6 +511,7 @@ function checkoutOrphanedBranch(branchName) {
         `git checkout --orphan ${branchName} $(git rev-list --max-parents=0 HEAD)`,
         // delete everything that we care about (directories that aren't the .git directory)
         `find . -maxdepth 1 -mindepth 1 -type d | grep -v "./\.git" | xargs rm -rf`,
+        `git commit --allow-empty -m "chore(${branchName}): Initialize branch ${branchName}"`,
         `cd ..`
     ];
     try {
