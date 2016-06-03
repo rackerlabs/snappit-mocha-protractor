@@ -318,10 +318,10 @@ function pushCommit(pushUpstream, branchName) {
     // don't log any of this information out to the console!
     let sensitiveCommand = [
         `cd ${config.snappit.screenshotsDirectory}`,
-        `git push ${pushUrl} ${branchName} > /dev/null 2>&1`
+        `git push ${pushUrl} ${branchName}`
     ].join('; ');
 
-    execSync(sensitiveCommand);
+    cmd(sensitiveCommand);
 };
 
 function makePullRequest(repoUrl) {
