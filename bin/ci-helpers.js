@@ -285,18 +285,26 @@ function createForkAndClone() {
         }
 
         cloneRepo(screenshotsRepo);
+        configureGitUser();
         findAndCreateTargetBranch();
     });
 };
 
-function commitScreenshots() {
+function configureGitUser() {
+    console.log(`Preparing service account ${userName} to commit locally.`);
     let cmds = [
-        `pwd`,
         `cd ${config.snappit.screenshotsDirectory}`,
-        `pwd`,
-        `git checkout -b ${config.snappit.cicd.messages.branchName(getVars())}`,
         `git config user.name "${userName}"`,
         `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
+        `cd ..`
+    ];
+    cmd(cmds.join('; '));
+};
+
+function commitScreenshots() {
+    let cmds = [
+        `cd ${config.snappit.screenshotsDirectory}`,
+        `git checkout -b ${config.snappit.cicd.messages.branchName(getVars())}`,
         `git add -A`,
         `git status -sb`,
         `git commit -m "${config.snappit.cicd.messages.commitMessage(getVars())}"`
