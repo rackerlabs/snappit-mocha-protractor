@@ -307,7 +307,8 @@ function commitScreenshots() {
         `git checkout -b ${config.snappit.cicd.messages.branchName(getVars())}`,
         `git add -A`,
         `git status -sb`,
-        `git commit -m "${config.snappit.cicd.messages.commitMessage(getVars())}"`
+        `git commit -m "${config.snappit.cicd.messages.commitMessage(getVars())}"`,
+        `cd ..`
     ];
     try {
         cmd(cmds.join('; '));
@@ -326,7 +327,8 @@ function pushCommit(pushUpstream, branchName) {
     // don't log any of this information out to the console!
     let sensitiveCommand = [
         `cd ${config.snappit.screenshotsDirectory}`,
-        `git push ${pushUrl} ${branchName}`
+        `git push ${pushUrl} ${branchName}`,
+        `cd ..`
     ].join('; ');
 
     cmd(sensitiveCommand);
@@ -519,7 +521,7 @@ function checkoutOrphanedBranch(branchName) {
         `git checkout --orphan ${branchName} $(git rev-list --max-parents=0 HEAD)`,
         // delete everything that we care about (directories that aren't the .git directory)
         `find . -maxdepth 1 -mindepth 1 -type d | grep -v "./\.git" | xargs rm -rf`,
-        `git commit --allow-empty -m "chore(${branchName}): Initialize branch ${branchName}"`,
+        `git commit --allow-empty -m "chore(branch): Initialize new branch '${branchName}'"`,
         `cd ..`
     ];
     try {
