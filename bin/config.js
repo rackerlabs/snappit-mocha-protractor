@@ -11,7 +11,7 @@ let setConfigDefaults = config => {
 
     config.snappit.cicd = _.defaults(config.snappit.cicd, {
         githubTokenEnvironmentVariable: 'ghToken',
-        targetBranch: 'master',
+        targetBranch: undefined, // will default to project pull request's target branch
         privateRepo: false,
         ignoreSSLWarnings: false,
         githubEnterprise: false

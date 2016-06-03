@@ -21,9 +21,13 @@ if (args[0] === undefined) {
 let config = configOptions.fromProtractorConf(args[0]);
 
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
-let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
+let projectRepoName = _.last(projectRepo.path.split('/'))
 let projectOrg = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+
+let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
+let screenshotsRepoName = _.last(screenshotsRepo.path.split('/'));
 let screenshotsOrg = screenshotsRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+
 let userName = config.snappit.cicd.serviceAccount.userName;
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
 
@@ -48,7 +52,7 @@ let actions = {
 
     push: {
         description: descriptions.pushDescription,
-        fn: () => pushCommit(screenshotsRepo)
+        fn: pushCommit
     },
 
     pr: {
@@ -88,7 +92,8 @@ function getSupportedCIEnvironments() {
                     return process.env.TRAVIS_BRANCH;
                 }
                 return findBranchName(projectRepo, this.pullRequestNumber);
-            }
+            },
+            get targetBranch() { return findTargetBranch(projectRepo, this.pullRequestNumber); }
         },
 
         codeship: {
@@ -98,7 +103,8 @@ function getSupportedCIEnvironments() {
             get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
             // codeship builds when new commits are pushed, not when pull requests are opened
             get pullRequestNumber() { return findPullRequestNumber(projectRepo, this.branch); },
-            get branch() { return process.env.CI_BRANCH; }
+            get branch() { return process.env.CI_BRANCH; },
+            get targetBranch() { return findTargetBranch(projectRepo, this.pullRequestNumber); }
         },
 
         jenkins: {
@@ -107,7 +113,8 @@ function getSupportedCIEnvironments() {
             get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return findSha(projectRepo, this.pullRequestNumber).slice(0, 7); },
             get pullRequestNumber() { return process.env.sha1.match(/pr\/(\d+)\/merge/)[1]; },
-            get branch() { return findBranchName(projectRepo, this.pullRequestNumber); }
+            get branch() { return findBranchName(projectRepo, this.pullRequestNumber); },
+            get targetBranch() { return findTargetBranch(projectRepo, this.pullRequestNumber); }
         },
 
         undefined: {
@@ -116,7 +123,8 @@ function getSupportedCIEnvironments() {
             get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return 'sha1-unavailable'; },
             get pullRequestNumber() { return 'pull-request-number-unavailable'; },
-            get branch() { return 'branch-unavailable'; }
+            get branch() { return 'branch-unavailable'; },
+            get targetBranch() { return 'target-branch-unavailable'; }
         }
     };
 };
@@ -240,10 +248,22 @@ function forkRepository(repoUrl) {
 function cloneRepo(repoUrl) {
     let cloneUrl = `https://${token}@${repoUrl.host}${repoUrl.path}.git`;
     // don't log any of this information out to the console!
-    execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
+    try {
+        execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
+    } catch (e) {
+        console.log('Cloning repo failed! Suppressing error to avoid leaking sensitive token information.');
+    }
+
     console.log(`Cloned a submodule for screenshots in directory "${repoUrl.href}"`);
 };
 
+/**
+ * This will create a screenshots repo, if it does not exist, then it will create a fork of that
+ * using your service account's credentials. It will then clone it as a submodule into your project.
+ * Afterwards, it will find out what the target branch is in the project repo's pull request, and configure
+ * the submodule of your screenshot repository to mimic that branch set up.
+ * @see moveToTargetBranch
+ */
 function createForkAndClone() {
     if (!repositoryExists(projectRepo)) {
         throw new Error(`Main project repo ${projectRepo.href} does not exist! Create it first, then retry.`);
@@ -258,8 +278,7 @@ function createForkAndClone() {
     // will either create a repo (if it doesn't exist), or return a message stating that it does exist
     return repoAction.then(message => {
         console.log(message);
-        let repoName = _.last(screenshotsRepo.path.split('/'));
-        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${userName}/${repoName}`);
+        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${userName}/${screenshotsRepoName}`);
         if (!repositoryExists(forkedRepo)) {
             return forkRepository(screenshotsRepo).then((message) => {
                 console.log(message);
@@ -274,37 +293,58 @@ function createForkAndClone() {
         }
 
         cloneRepo(screenshotsRepo);
+        configureGitUser();
+        moveToTargetBranch();
     });
+};
+
+function configureGitUser() {
+    console.log(`Preparing service account ${userName} to commit locally.`);
+    let cmds = [
+        `cd ${config.snappit.screenshotsDirectory}`,
+        `git config user.name "${userName}"`,
+        `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
+        `cd ..`
+    ];
+    cmd(cmds.join('; '));
 };
 
 function commitScreenshots() {
     let cmds = [
-        `pwd`,
         `cd ${config.snappit.screenshotsDirectory}`,
-        `pwd`,
+        `git checkout ${getVars().targetBranch}`,
         `git checkout -b ${config.snappit.cicd.messages.branchName(getVars())}`,
-        `git config user.name "${userName}"`,
-        `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
         `git add -A`,
         `git status -sb`,
-        `git commit -m "${config.snappit.cicd.messages.commitMessage(getVars())}"`
+        `git commit -m "${config.snappit.cicd.messages.commitMessage(getVars())}"`,
+        `cd ..`
     ];
     try {
         cmd(cmds.join('; '));
     } catch (e) { /* Nothing to commit */ }
 };
 
-function pushCommit() {
+function pushCommit(pushUpstream, branchName) {
     // pushes to the fork created by the service account by default, not the main screenshots repo
-    let repoName = _.last(screenshotsRepo.path.split('/'));
-    let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${userName}/${repoName}.git`;
+    let destination = pushUpstream ? screenshotsOrg : userName;
+    if (branchName === undefined) {
+        branchName = config.snappit.cicd.messages.branchName(getVars());
+    }
+
+    let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${destination}/${screenshotsRepoName}.git`;
+
     // don't log any of this information out to the console!
     let sensitiveCommand = [
         `cd ${config.snappit.screenshotsDirectory}`,
-        `git push ${pushUrl} ${config.snappit.cicd.messages.branchName(getVars())} > /dev/null 2>&1`
+        `git push ${pushUrl} ${branchName} > /dev/null 2>&1`,
+        `cd ..`
     ].join('; ');
 
-    execSync(sensitiveCommand);
+    try {
+        execSync(sensitiveCommand);
+    } catch (e) {
+        console.log('Pushing commit failed! Suppressing error to avoid leaking sensitive token information.');
+    }
 };
 
 function makePullRequest(repoUrl) {
@@ -313,7 +353,7 @@ function makePullRequest(repoUrl) {
         title: config.snappit.cicd.messages.pullRequestTitle(getVars()),
         body: config.snappit.cicd.messages.pullRequestBody(getVars()),
         head: `${userName}:${config.snappit.cicd.messages.branchName(getVars())}`,
-        base: config.snappit.cicd.targetBranch
+        base: config.snappit.cicd.targetBranch || getVars().targetBranch
     };
 
     let options = {
@@ -428,4 +468,73 @@ function findSha(repoUrl, pullRequestNumber) {
     if (pullRequest.message === undefined) {
         return pullRequest.head.sha;
     }
+};
+
+/**
+ * Find the current target branch for the project's pull request. If this target branch does not yet exist
+ * in the screenshots repository, it will be created.
+ *
+ * Why:
+ * Not all screenshot pull request should target the master branch.
+ * For projects that support multiple versions of the same project (e.g., a long running 2.x branch
+ * while simultaneously supporting a 1.x version on `master`), this will designate all screenshots to
+ * merge into a branch that is named the same as the branch the project's pull request is targeting.
+ *
+ * Example:
+ * A pull request is opened against master, `feature-for-master`. The screenshots for that pull request
+ * will be made against the screenshot repository's master branch. Another pull request is opened against
+ * the 2.x branch, `feature-for-2.x`. The screenshots for *that* pull request will be made against the
+ * screenshot repository's 2.x branch. If you do not have a "2.x" branch yet in your screenshots repository,
+ * it will be created for you.
+ */
+function moveToTargetBranch() {
+    let projectTargetBranchName = getVars().targetBranch;
+    if (branchExists(screenshotsRepo, projectTargetBranchName)) {
+        cmd(`cd ${config.snappit.screenshotsDirectory}; git checkout ${projectTargetBranchName}; cd ..`);
+    } else {
+        console.log(`No branch to merge against: target branch ${projectTargetBranchName}. Creating...`);
+        checkoutOrphanedBranch(projectTargetBranchName);
+        let pushUpstream = true;
+        pushCommit(pushUpstream, projectTargetBranchName);
+    }
+};
+
+/**
+ * Get the name of the branch the the project's pull request is targeting.
+ * Most of the time, this is "master".
+ */
+function findTargetBranch(repoUrl, pullRequestNumber) {
+    let u = buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`);
+    let pullRequest = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    if (pullRequest.message === undefined) {
+        return pullRequest.base.ref;
+    }
+};
+
+/**
+ * `branchName` must be an exact match the the branch you're looking for.
+ */
+function branchExists(repoUrl, branchName) {
+    let u = buildApiUrl(repoUrl, `/repos${repoUrl.path}/branches/${branchName}`);
+    let branch = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    return branch.message !== 'Branch not found';
+};
+
+/**
+ * Will create a branch that has absolutely no history in common with the project, save for the first commit.
+ * For repositories generated with this tool, will include only a single "Initial Commit" parent commit.
+ */
+function checkoutOrphanedBranch(branchName) {
+    let cmds = [
+        `cd ${config.snappit.screenshotsDirectory}`,
+        // check out an orphaned (no history) branch http://stackoverflow.com/a/4288660/881224
+        // and set its parent to the first commit (inital commit) http://stackoverflow.com/a/1007545/881224
+        `git checkout --orphan ${branchName} $(git rev-list --max-parents=0 HEAD)`,
+        // delete everything that we care about (directories that aren't the .git directory)
+        `find . -maxdepth 1 -mindepth 1 -type d | grep -v "./\.git" | xargs rm -rf`,
+        `git commit --allow-empty -m "Start new screenshot catalog for ${projectOrg}/${projectRepoName}:${branchName}"`,
+        `cd ..`
+    ];
+
+    cmd(cmds.join('; '));
 };
