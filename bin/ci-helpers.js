@@ -286,7 +286,7 @@ function createForkAndClone() {
 
         cloneRepo(screenshotsRepo);
         configureGitUser();
-        findAndCreateTargetBranch();
+        createTargetBranch();
     });
 };
 
@@ -475,7 +475,7 @@ function findSha(repoUrl, pullRequestNumber) {
  * screenshot repository's 2.x branch. If you do not have a "2.x" branch yet in your screenshots repository,
  * it will be created for you.
  */
-function findAndCreateTargetBranch() {
+function createTargetBranch() {
     let projectTargetBranchName = getVars().targetBranch;
     if (!branchExists(projectTargetBranchName)) {
         console.log(`No branch to merge against: target branch ${projectTargetBranchName}. Creating...`);
@@ -484,7 +484,6 @@ function findAndCreateTargetBranch() {
         let pushUpstream = true;
         pushCommit(pushUpstream, projectTargetBranchName);
     }
-    return projectTargetBranchName;
 };
 
 /**
@@ -505,7 +504,12 @@ function findTargetBranch(repoUrl, pullRequestNumber) {
 function branchExists(branchName) {
     let branches = '';
     try {
-        branches = execSync(`git branch -a --no-color | grep "  remotes/origin/${branchName}$"`).toString('utf-8');
+        cmds = [
+            `cd ${config.snappit.screenshotsDirectory}`,
+            `git branch -a --no-color | grep "^  remotes/origin/${branchName}$"`,
+            `cd ..`
+        ].join('; ');
+        branches = execSync(cmds).toString('utf-8');
     } catch (e) {}
     return Boolean(branches.length);
 };
