@@ -502,16 +502,9 @@ function findTargetBranch(repoUrl, pullRequestNumber) {
  * `branchName` must be an exact match the the branch you're looking for.
  */
 function branchExists(branchName) {
-    let branches = '';
-    try {
-        cmds = [
-            `cd ${config.snappit.screenshotsDirectory}`,
-            `git branch -a --no-color | grep "^  remotes/origin/${branchName}$"`,
-            `cd ..`
-        ].join('; ');
-        branches = execSync(cmds).toString('utf-8');
-    } catch (e) {}
-    return Boolean(branches.length);
+    let u = buildApiUrl(repoUrl, `/repos${repoUrl.path}/branches/${branchName}`);
+    let branches = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    return branches.message === undefined;
 };
 
 /**
