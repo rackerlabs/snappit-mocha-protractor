@@ -52,7 +52,7 @@ let actions = {
 
     push: {
         description: descriptions.pushDescription,
-        fn: () => pushCommit
+        fn: pushCommit
     },
 
     pr: {
@@ -321,7 +321,7 @@ function commitScreenshots() {
 
 function pushCommit(pushUpstream, branchName) {
     // pushes to the fork created by the service account by default, not the main screenshots repo
-    let destination = pushUpstream ? projectOrg : userName;
+    let destination = pushUpstream ? screenshotsOrg : userName;
     if (branchName === undefined) {
         branchName = config.snappit.cicd.messages.branchName(getVars());
     }
