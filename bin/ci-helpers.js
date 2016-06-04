@@ -21,10 +21,13 @@ if (args[0] === undefined) {
 let config = configOptions.fromProtractorConf(args[0]);
 
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
-let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
-let repoName = _.last(screenshotsRepo.path.split('/'));
+let projectRepoName = _.last(projectRepo.path.split('/'))
 let projectOrg = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+
+let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
+let screenshotsRepoName = _.last(screenshotsRepo.path.split('/'));
 let screenshotsOrg = screenshotsRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+
 let userName = config.snappit.cicd.serviceAccount.userName;
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
 
@@ -270,7 +273,7 @@ function createForkAndClone() {
     // will either create a repo (if it doesn't exist), or return a message stating that it does exist
     return repoAction.then(message => {
         console.log(message);
-        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${userName}/${repoName}`);
+        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${userName}/${screenshotsRepoName}`);
         if (!repositoryExists(forkedRepo)) {
             return forkRepository(screenshotsRepo).then((message) => {
                 console.log(message);
@@ -323,7 +326,7 @@ function pushCommit(pushUpstream, branchName) {
         branchName = config.snappit.cicd.messages.branchName(getVars());
     }
 
-    let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${destination}/${repoName}.git`;
+    let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${destination}/${screenshotsRepoName}.git`;
 
     // don't log any of this information out to the console!
     let sensitiveCommand = [
@@ -520,7 +523,7 @@ function checkoutOrphanedBranch(branchName) {
         `git checkout --orphan ${branchName} $(git rev-list --max-parents=0 HEAD)`,
         // delete everything that we care about (directories that aren't the .git directory)
         `find . -maxdepth 1 -mindepth 1 -type d | grep -v "./\.git" | xargs rm -rf`,
-        `git commit --allow-empty -m "Start new screenshot catalog for ${projectOrg}/${repoName}:${branchName}"`,
+        `git commit --allow-empty -m "Start new screenshot catalog for ${projectOrg}/${projectRepoName}:${branchName}"`,
         `cd ..`
     ];
     try {
