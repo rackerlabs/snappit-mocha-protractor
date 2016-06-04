@@ -304,6 +304,7 @@ function configureGitUser() {
 function commitScreenshots() {
     let cmds = [
         `cd ${config.snappit.screenshotsDirectory}`,
+        `git checkout ${getVars().targetBranch}`,
         `git checkout -b ${config.snappit.cicd.messages.branchName(getVars())}`,
         `git add -A`,
         `git status -sb`,
@@ -504,7 +505,7 @@ function findTargetBranch(repoUrl, pullRequestNumber) {
 function branchExists(branchName) {
     let branches = '';
     try {
-        branches = execSync(`git branch --no-color | grep "[\* |  ]${branchName}"`).toString('utf-8');
+        branches = execSync(`git branch -a --no-color | grep "  remotes/origin/${branchName}$"`).toString('utf-8');
     } catch (e) {}
     return Boolean(branches.length);
 };
