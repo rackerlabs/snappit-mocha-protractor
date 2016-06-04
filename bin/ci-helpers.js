@@ -286,7 +286,7 @@ function createForkAndClone() {
 
         cloneRepo(screenshotsRepo);
         configureGitUser();
-        createTargetBranch();
+        moveToTargetBranch();
     });
 };
 
@@ -475,12 +475,13 @@ function findSha(repoUrl, pullRequestNumber) {
  * screenshot repository's 2.x branch. If you do not have a "2.x" branch yet in your screenshots repository,
  * it will be created for you.
  */
-function createTargetBranch() {
+function moveToTargetBranch() {
     let projectTargetBranchName = getVars().targetBranch;
-    if (!branchExists(projectTargetBranchName)) {
+    if (branchExists(screenshotsRepo, projectTargetBranchName)) {
+        cmd(`cd ${config.snappit.screenshotsDirectory}; git checkout ${projectTargetBranchName}; cd ..`);
+    } else {
         console.log(`No branch to merge against: target branch ${projectTargetBranchName}. Creating...`);
         checkoutOrphanedBranch(projectTargetBranchName);
-        // doesn't actually push the "commit", but will push this new branch up
         let pushUpstream = true;
         pushCommit(pushUpstream, projectTargetBranchName);
     }
@@ -501,10 +502,10 @@ function findTargetBranch(repoUrl, pullRequestNumber) {
 /**
  * `branchName` must be an exact match the the branch you're looking for.
  */
-function branchExists(branchName) {
+function branchExists(repoUrl, branchName) {
     let u = buildApiUrl(repoUrl, `/repos${repoUrl.path}/branches/${branchName}`);
-    let branches = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
-    return branches.message === undefined;
+    let branch = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    return branch.message !== 'Branch not found';
 };
 
 /**
@@ -519,7 +520,7 @@ function checkoutOrphanedBranch(branchName) {
         `git checkout --orphan ${branchName} $(git rev-list --max-parents=0 HEAD)`,
         // delete everything that we care about (directories that aren't the .git directory)
         `find . -maxdepth 1 -mindepth 1 -type d | grep -v "./\.git" | xargs rm -rf`,
-        `git commit --allow-empty -m "chore(branch): Initialize new branch '${branchName}'"`,
+        `git commit --allow-empty -m "Start new screenshot catalog for ${projectOrg}/${repoName}:${branchName}"`,
         `cd ..`
     ];
     try {
