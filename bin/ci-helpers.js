@@ -248,7 +248,12 @@ function forkRepository(repoUrl) {
 function cloneRepo(repoUrl) {
     let cloneUrl = `https://${token}@${repoUrl.host}${repoUrl.path}.git`;
     // don't log any of this information out to the console!
-    execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
+    try {
+        execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
+    } catch (e) {
+        console.log('Cloning repo failed! Suppressing error to avoid leaking sensitive token information.');
+    }
+
     console.log(`Cloned a submodule for screenshots in directory "${repoUrl.href}"`);
 };
 
@@ -257,7 +262,7 @@ function cloneRepo(repoUrl) {
  * using your service account's credentials. It will then clone it as a submodule into your project.
  * Afterwards, it will find out what the target branch is in the project repo's pull request, and configure
  * the submodule of your screenshot repository to mimic that branch set up.
- * @see findAndCreateTargetBranch
+ * @see moveToTargetBranch
  */
 function createForkAndClone() {
     if (!repositoryExists(projectRepo)) {
@@ -331,11 +336,15 @@ function pushCommit(pushUpstream, branchName) {
     // don't log any of this information out to the console!
     let sensitiveCommand = [
         `cd ${config.snappit.screenshotsDirectory}`,
-        `git push ${pushUrl} ${branchName}`,
+        `git push ${pushUrl} ${branchName} > /dev/null 2>&1`,
         `cd ..`
     ].join('; ');
 
-    cmd(sensitiveCommand);
+    try {
+        execSync(sensitiveCommand);
+    } catch (e) {
+        console.log('Pushing commit failed! Suppressing error to avoid leaking sensitive token information.');
+    }
 };
 
 function makePullRequest(repoUrl) {
@@ -526,7 +535,6 @@ function checkoutOrphanedBranch(branchName) {
         `git commit --allow-empty -m "Start new screenshot catalog for ${projectOrg}/${projectRepoName}:${branchName}"`,
         `cd ..`
     ];
-    try {
-        cmd(cmds.join('; '));
-    } catch (e) { /* Nothing to commit */ }
+
+    cmd(cmds.join('; '));
 };
