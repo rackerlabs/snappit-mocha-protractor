@@ -10,6 +10,10 @@ describe('Angular JS', function () {
         expect(browser.getTitle()).to.eventually.contain('AngularJS');
     });
 
+    it('should take a full screen image', function () {
+        screenshot.snap(this);
+    });
+
     it('should have a navigation section at the top', function () {
         var navbar = $('.navbar-inner .container');
         screenshot.snap(this, navbar, {
@@ -31,7 +35,6 @@ describe('Angular JS', function () {
         });
 
         it('should have an odd title', function () {
-            screenshot.snap(this);
             expect(browser.getTitle()).to.eventually.contain('Tutorial: Tutorial');
         });
 
