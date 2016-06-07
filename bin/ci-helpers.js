@@ -247,12 +247,7 @@ function forkRepository(repoUrl) {
 
 function cloneRepo(repoUrl) {
     let cloneUrl = `https://${token}@${repoUrl.host}${repoUrl.path}.git`;
-    // don't log any of this information out to the console!
-    try {
-        execSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`);
-    } catch (e) {
-        console.log('Cloning repo failed! Suppressing error to avoid leaking sensitive token information.');
-    }
+    safeExecSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`)
 
     console.log(`Cloned a submodule for screenshots in directory "${repoUrl.href}"`);
 };
@@ -333,18 +328,13 @@ function pushCommit(pushUpstream, branchName) {
 
     let pushUrl = `https://${token}@${screenshotsRepo.hostname}/${destination}/${screenshotsRepoName}.git`;
 
-    // don't log any of this information out to the console!
     let sensitiveCommand = [
         `cd ${config.snappit.screenshotsDirectory}`,
         `git push ${pushUrl} ${branchName} > /dev/null 2>&1`,
         `cd ..`
     ].join('; ');
 
-    try {
-        execSync(sensitiveCommand);
-    } catch (e) {
-        console.log('Pushing commit failed! Suppressing error to avoid leaking sensitive token information.');
-    }
+    safeExecSync(sensitiveCommand);
 };
 
 function makePullRequest(repoUrl) {
@@ -399,6 +389,22 @@ function cmd(command) {
     execSync(`${command}`, { stdio: [0, 1, 2] })
 };
 
+
+/**
+ * Will ensure that any errors that occur in `command` will have it's token values
+ * stripped from the error message. If it does error, the token is replaced with just
+ * enough information to confirm whether or not your token is what you actually think it is.
+ */
+function safeExecSync(command) {
+    try {
+       return execSync(command);
+    } catch (e) {
+        e.message = e.message.replace(token, `${token.slice(0, 4)}....${token.slice(-4)}`);
+        e.stack = e.stack.replace(token, `${token.slice(0, 4)}....${token.slice(-4)}`);
+        throw e;
+    }
+};
+
 /**
  * Enterprise github has a different url signature for api requests.
  */
@@ -424,7 +430,8 @@ function buildCurlFlags() {
 
 function repositoryExists(repoUrl) {
     let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}`);
-    let repositoryInfo = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8');
+    let repositoryInfo = JSON.parse(output);
     return repositoryInfo.message !== 'Not Found';
 };
 
@@ -437,7 +444,8 @@ function repositoryExists(repoUrl) {
  */
 function findBranchName(repoUrl, pullRequestNumber) {
     let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`);
-    let pullRequest = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8');
+    let pullRequest = JSON.parse(output);
     if (pullRequest.message === undefined) {
         return pullRequest.head.ref;
     }
@@ -450,7 +458,8 @@ function findBranchName(repoUrl, pullRequestNumber) {
  */
 function findPullRequestNumber(repoUrl, branchName) {
     let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${projectOrg}:${branchName}`);
-    let pullRequests = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8');
+    let pullRequests = JSON.parse(output);
     if (pullRequests.length) {
         return pullRequests[0].number;
     }
@@ -464,7 +473,8 @@ function findPullRequestNumber(repoUrl, branchName) {
  */
 function findSha(repoUrl, pullRequestNumber) {
     let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`);
-    let pullRequest = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8');
+    let pullRequest = JSON.parse(output);
     if (pullRequest.message === undefined) {
         return pullRequest.head.sha;
     }
@@ -505,7 +515,8 @@ function moveToTargetBranch() {
  */
 function findTargetBranch(repoUrl, pullRequestNumber) {
     let u = buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls/${pullRequestNumber}`);
-    let pullRequest = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8')
+    let pullRequest = JSON.parse(output);
     if (pullRequest.message === undefined) {
         return pullRequest.base.ref;
     }
@@ -516,7 +527,8 @@ function findTargetBranch(repoUrl, pullRequestNumber) {
  */
 function branchExists(repoUrl, branchName) {
     let u = buildApiUrl(repoUrl, `/repos${repoUrl.path}/branches/${branchName}`);
-    let branch = JSON.parse(execSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8'));
+    let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8');
+    let branch = JSON.parse(output);
     return branch.message !== 'Branch not found';
 };
 
