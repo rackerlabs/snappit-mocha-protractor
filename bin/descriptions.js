@@ -53,13 +53,23 @@ The pull request title is configurable from the 'config.snappit.cicd.messages.pu
 The pull request body is configurable from the 'config.snappit.cicd.messages.pullRequestBody' entry.
 `;
 
-exports.noPullRequestErrorMessage = function (vars) {
+exports.noPullRequestError = function (vars) {
     return `
 No pull request currently exists for ${vars.repoSlug}@${vars.sha1}. You will need to open
 a pull request for that change set, and re-run this test suite in order to properly handle
 visual regression checks.
 
 For more information, see https://github.com/rackerlabs/snappit-mocha-protractor/wiki/0:-snappit-ci#running-visual-regression-tests-without-opening-a-pr-first
+`;
+};
+
+exports.pullRequestAlreadyExistsError = function (vars, repoUrl, pullRequestNumber) {
+    return `
+A visual regression pull request already exists that is tracking ${vars.repoSlug}@${vars.sha1}.
+You will need to close the pull request located at ${repoUrl.href}/pull/${pullRequestNumber},
+and re-run this test suite in order to properly handle visual regression checks.
+
+For more information, see https://github.com/rackerlabs/snappit-mocha-protractor/wiki/0:-snappit-ci#re-running-visual-regression-tests-against-open-prs
 `;
 };
 

@@ -20,15 +20,34 @@ if (args[0] === undefined) {
 
 let config = configOptions.fromProtractorConf(args[0]);
 
+/**
+ * Will take a `url.parse`'d repo url and return the "repo slug".
+ * 'https://github.com/rackerlabs/snappit-mocha-protractor' -> 'rackerlabs/snappit-mocha-protractor'
+ */
+function repoName(repoUrl) {
+    return _.last(repoUrl.path.split('/'));
+};
+
+/**
+ * Will take a `url.parse`'d repo url and return the org name.
+ * 'https://github.com/rackerlabs/snappit-mocha-protractor' -> 'rackerlabs'
+ */
+function repoOrg(repoUrl) {
+    return repoUrl.path.match(/\/.*\//)[0].replace(/\//g, '');
+};
+
 let projectRepo = url.parse(config.snappit.cicd.projectRepo);
-let projectRepoName = _.last(projectRepo.path.split('/'))
-let projectOrg = projectRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+let projectRepoName = repoName(projectRepo);
+let projectOrg = repoOrg(projectRepo);
 
 let screenshotsRepo = url.parse(config.snappit.cicd.screenshotsRepo);
-let screenshotsRepoName = _.last(screenshotsRepo.path.split('/'));
-let screenshotsOrg = screenshotsRepo.path.match(/\/.*\//)[0].replace(/\//g, '');
+let screenshotsRepoName = repoName(screenshotsRepo);
+let screenshotsOrg = repoOrg(screenshotsRepo);
 
 let userName = config.snappit.cicd.serviceAccount.userName;
+
+let forkedScreenshotsRepo = url.parse(`https://${screenshotsRepo.hostname}/${userName}/${screenshotsRepoName}`);
+
 let token = process.env[config.snappit.cicd.githubTokenEnvironmentVariable];
 
 let insecureAgent = new https.Agent({
@@ -67,9 +86,18 @@ if (require.main === module) {
         descriptions.showHelpTextAndQuit(undefined, actions);
     }
 
+    let vars = getVars();
+
     // we really can't do anything if there's no open pull request in the project repository yet
-    if (getVars().pullRequestNumber === undefined) {
-        throw new Error(descriptions.noPullRequestErrorMessage(getVars()));
+    if (vars.pullRequestNumber === undefined) {
+        throw new Error(descriptions.noPullRequestError(vars));
+    }
+
+    let expectedBranchName = config.snappit.cicd.messages.branchName(vars);
+    let pullRequestNumber = findPullRequestNumber(screenshotsRepo, expectedBranchName, forkedScreenshotsRepo);
+    if (pullRequestNumber !== undefined) {
+        let msg = descriptions.pullRequestAlreadyExistsError(vars, screenshotsRepo, pullRequestNumber);
+        throw new Error(msg);
     }
 
     actions[action].fn();
@@ -278,18 +306,17 @@ function createForkAndClone() {
     // will either create a repo (if it doesn't exist), or return a message stating that it does exist
     return repoAction.then(message => {
         console.log(message);
-        let forkedRepo = url.parse(`https://${screenshotsRepo.hostname}/${userName}/${screenshotsRepoName}`);
-        if (!repositoryExists(forkedRepo)) {
+        if (!repositoryExists(forkedScreenshotsRepo)) {
             return forkRepository(screenshotsRepo).then((message) => {
                 console.log(message);
                 do {
                     setTimeout(() => {
-                        console.log(`Waiting on forked repository ${forkedRepo.href} to appear...`)
+                        console.log(`Waiting on forked repository ${forkedScreenshotsRepo.href} to appear...`)
                     }, 1000);
-                } while (!repositoryExists(forkedRepo))
+                } while (!repositoryExists(forkedScreenshotsRepo))
             });
         } else {
-            console.log(`Forked screenshots repository ${forkedRepo.href} already exists.`);
+            console.log(`Forked screenshots repository ${forkedScreenshotsRepo.href} already exists.`);
         }
 
         cloneRepo(screenshotsRepo);
@@ -460,9 +487,16 @@ function findBranchName(repoUrl, pullRequestNumber) {
  * Codeship doesn't natively support getting you the pull request number from a build
  * because they build as soon as a commit is pushed, not when a PR is opened. So,
  * this searches for any pull requests that match the current branch.
+ *
+ * `remoteHeadUrl` is provided in case you need to check for pull requests across forks,
+ * which happens at the beginning of this script, before any actions are taken.
+ * @see "if (require.main === module)"
+ * @see descriptions.pullRequestAlreadyExistsError
  */
-function findPullRequestNumber(repoUrl, branchName) {
-    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${projectOrg}:${branchName}`);
+function findPullRequestNumber(repoUrl, branchName, remoteHeadUrl) {
+    let org = remoteHeadUrl === undefined ? repoOrg(repoUrl) : repoOrg(remoteHeadUrl);
+
+    let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${org}:${branchName}`);
     let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8');
     let pullRequests = JSON.parse(output);
     if (pullRequests.length) {
