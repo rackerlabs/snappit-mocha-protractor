@@ -67,6 +67,11 @@ if (require.main === module) {
         descriptions.showHelpTextAndQuit(undefined, actions);
     }
 
+    // we really can't do anything if there's no open pull request in the project repository yet
+    if (getVars().pullRequestNumber === undefined) {
+        throw new Error(descriptions.noPullRequestErrorMessage(getVars()));
+    }
+
     actions[action].fn();
 };
 
