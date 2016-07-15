@@ -34,7 +34,7 @@ You do not have one of the following supported installers available: ${Object.ke
 Please refer to https://github.com/Automattic/node-canvas#installation for more information on setting up dependencies
 ` };
 
-let needsSudoError = (installerName, installer) => { `
+let needsSudoError = (installerName, installer) => { return `
 Using ${installerName} to install image manipulation dependencies requires root.
 Either re-run with sudo, or install yourself with:
 
