@@ -50,7 +50,7 @@ let getScreenshotNameFromContext = testContext => {
         return browser.driver.manage().window().getSize().then(resolution => {
             let resolutionString = `${zfill(resolution.width, 4)}x${zfill(resolution.height, 4)}`;
             let browserName = capabilities.get('browserName');
-            let screenshotDir = path.join(module.exports.screenshotsDirectory, browserName);
+            let screenshotDir = path.resolve(__dirname, module.exports.screenshotsDirectory, browserName);
             let test = util.handleMochaHooks(testContext);
             let fullyQualifiedPath = test.file.split('/');
             let commonPath = _.takeWhile(path.resolve(__dirname).split('/'), (directoryPart, index) => {
