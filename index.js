@@ -29,13 +29,15 @@ browser.getProcessedConfig().then(function (config) {
         threshold: options.threshold,
         disable: options.disable,
         logWarnings: options.logWarnings,
-        defaultResolutions: options.defaultResolutions
+        defaultResolutions: options.defaultResolutions,
+        sleep: options.sleep
     }, {
         screenshotsDirectory: './screenshots',
         threshold: 4, // percent
         disable: false,
         logWarnings: true,
-        defaultResolutions: []
+        defaultResolutions: [],
+        sleep: 150
     }));
 });
 
@@ -153,6 +155,8 @@ let snapOne = (testContext, elem, options) => {
     let flow = browser.controlFlow();
     let snapFn = () => {
         return getScreenshotNameFromContext(testContext, options).then(screenshotName => {
+            // prevent bogus diffs by waiting for the resize to finish completely
+            browser.sleep(module.exports.sleep);
             return browser.takeScreenshot().then(screenshotData => {
                 let deferred = promise.defer();
                 lwip.open(new Buffer(screenshotData, 'base64'), 'png', (err, image) => {
