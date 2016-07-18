@@ -205,27 +205,34 @@ exports.snap = (testContext, elem, options) => {
     let defaultResolutions = options.ignoreDefaultResolutions ? [] : module.exports.defaultResolutions;
     let allResolutions = _.uniqWith([...options.resolutions, ...defaultResolutions], _.isEqual);
 
-
     return browser.driver.manage().window().getSize().then(originalResolution => {
         let originalWidth = originalResolution.width;
         let originalHeight = originalResolution.height;
+        // cover edge cases where browser starts in an inappropriate size
+        browser.driver.manage().window().setSize(originalWidth, originalHeight);
         if (allResolutions.length) {
             _.forEach(allResolutions, resolution => {
+                let width = resolution[0];
+                let height = resolution[1];
                 let takeEachScreenshotFn = () => {
-                    let width = resolution[0];
-                    let height = resolution[1];
                     options.currentResolution = { width: width, height: height };
                     browser.driver.manage().window().setSize(width, height);
                     snapOne(testContext, elem, options);
                 };
                 return flow.execute(takeEachScreenshotFn);
             });
-            browser.driver.manage().window().setSize(originalWidth, originalHeight);
-            options.currentResolution = { width: originalWidth, height: originalHeight };
-            snapOne(testContext, elem, options);
+            let lastSnapFn = () => {
+                options.currentResolution = { width: originalWidth, height: originalHeight };
+                browser.driver.manage().window().setSize(originalWidth, originalHeight);
+                snapOne(testContext, elem, options);
+            };
+            return flow.execute(lastSnapFn);
         } else {
-            options.currentResolution = { width: originalWidth, height: originalHeight };
-            snapOne(testContext, elem, options);
+            let lastSnapFn = () => {
+                options.currentResolution = { width: originalWidth, height: originalHeight };
+                snapOne(testContext, elem, options);
+            };
+            return flow.execute(lastSnapFn);
         }
     });
 };
