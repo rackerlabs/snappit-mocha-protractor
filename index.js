@@ -57,9 +57,8 @@ let getScreenshotNameFromContext = testContext => {
                 return directoryPart === fullyQualifiedPath[index];
             }).join('/');
             let relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '');
-            let cleanPathName = relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-');
-            let rawName = path.join(screenshotDir, cleanPathName, test.fullTitle, resolutionString);
-            return util.fileSystemFriendly(rawName);
+            let cleanPathName = util.fileSystemFriendly(relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-'));
+            return path.join(screenshotDir, cleanPathName, util.fileSystemFriendly(test.fullTitle), resolutionString);
         });
     });
 };
