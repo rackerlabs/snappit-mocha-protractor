@@ -45,21 +45,20 @@ let noScreenshot = (element, reason, fileName) => {
     }
 };
 
-let getScreenshotNameFromContext = testContext => {
+let getScreenshotNameFromContext = (testContext, options) => {
+    let resolution = options.currentResolution;
     return browser.getCapabilities().then(capabilities => {
-        return browser.driver.manage().window().getSize().then(resolution => {
-            let resolutionString = `${zfill(resolution.width, 4)}x${zfill(resolution.height, 4)}`;
-            let browserName = capabilities.get('browserName');
-            let screenshotDir = path.resolve(__dirname, module.exports.screenshotsDirectory, browserName);
-            let test = util.handleMochaHooks(testContext);
-            let fullyQualifiedPath = test.file.split('/');
-            let commonPath = _.takeWhile(path.resolve(__dirname).split('/'), (directoryPart, index) => {
-                return directoryPart === fullyQualifiedPath[index];
-            }).join('/');
-            let relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '');
-            let cleanPathName = util.fileSystemFriendly(relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-'));
-            return path.join(screenshotDir, cleanPathName, util.fileSystemFriendly(test.fullTitle), resolutionString);
-        });
+        let resolutionString = `${zfill(resolution.width, 4)}x${zfill(resolution.height, 4)}`;
+        let browserName = capabilities.get('browserName');
+        let screenshotDir = path.resolve(__dirname, module.exports.screenshotsDirectory, browserName);
+        let test = util.handleMochaHooks(testContext);
+        let fullyQualifiedPath = test.file.split('/');
+        let commonPath = _.takeWhile(path.resolve(__dirname).split('/'), (directoryPart, index) => {
+            return directoryPart === fullyQualifiedPath[index];
+        }).join('/');
+        let relativeFilePath = fullyQualifiedPath.join('/').replace(commonPath, '');
+        let cleanPathName = util.fileSystemFriendly(relativeFilePath.replace(/\.js$/, '').replace(/\./g, '-'));
+        return path.join(screenshotDir, cleanPathName, util.fileSystemFriendly(test.fullTitle), resolutionString);
     });
 };
 
@@ -153,7 +152,7 @@ let cropAndSaveImage = (image, elem, imageName, deferred, options) => {
 let snapOne = (testContext, elem, options) => {
     let flow = browser.controlFlow();
     let snapFn = () => {
-        return getScreenshotNameFromContext(testContext).then(screenshotName => {
+        return getScreenshotNameFromContext(testContext, options).then(screenshotName => {
             return browser.takeScreenshot().then(screenshotData => {
                 let deferred = promise.defer();
                 lwip.open(new Buffer(screenshotData, 'base64'), 'png', (err, image) => {
@@ -206,23 +205,27 @@ exports.snap = (testContext, elem, options) => {
     let defaultResolutions = options.ignoreDefaultResolutions ? [] : module.exports.defaultResolutions;
     let allResolutions = _.uniqWith([...options.resolutions, ...defaultResolutions], _.isEqual);
 
-    if (allResolutions.length) {
-        return browser.driver.manage().window().getSize().then(originalResolution => {
-            let originalWidth = originalResolution.width;
-            let originalHeight = originalResolution.height;
+
+    return browser.driver.manage().window().getSize().then(originalResolution => {
+        let originalWidth = originalResolution.width;
+        let originalHeight = originalResolution.height;
+        if (allResolutions.length) {
             _.forEach(allResolutions, resolution => {
                 let takeEachScreenshotFn = () => {
                     let width = resolution[0];
                     let height = resolution[1];
+                    options.currentResolution = { width: width, height: height };
                     browser.driver.manage().window().setSize(width, height);
                     snapOne(testContext, elem, options);
                 };
                 return flow.execute(takeEachScreenshotFn);
             });
             browser.driver.manage().window().setSize(originalWidth, originalHeight);
+            options.currentResolution = { width: originalWidth, height: originalHeight };
             snapOne(testContext, elem, options);
-        });
-    } else {
-        snapOne(testContext, elem, options);
-    }
+        } else {
+            options.currentResolution = { width: originalWidth, height: originalHeight };
+            snapOne(testContext, elem, options);
+        }
+    });
 };
