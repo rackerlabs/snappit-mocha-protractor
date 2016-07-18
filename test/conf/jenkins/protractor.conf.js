@@ -27,8 +27,8 @@ exports.config = {
         var chai = require('chai').use(require('chai-as-promised'));
         chai.config.truncateThreshold = 0;
         expect = chai.expect;
-        browser.driver.manage().window().setSize(1366, 768); // laptop
         screenshot = require('../../../index');
+        return browser.driver.manage().window().setSize(1366, 768); // laptop
     },
 
     capabilities: {

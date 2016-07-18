@@ -4,6 +4,7 @@
 
 let execSync = require('child_process').execSync;
 let https = require('https');
+let path = require('path');
 let url = require('url');
 
 let _ = require('lodash');
@@ -282,7 +283,7 @@ function cloneRepo(repoUrl) {
     let cloneUrl = `https://${token}@${repoUrl.host}${repoUrl.path}.git`;
     safeExecSync(`git submodule add -f ${cloneUrl} ${config.snappit.screenshotsDirectory} > /dev/null`)
 
-    console.log(`Cloned a submodule for screenshots in directory "${repoUrl.href}"`);
+    console.log(`Cloned a submodule for screenshots in directory "${path.resolve(config.snappit.screenshotsDirectory)}"`);
 };
 
 /**
