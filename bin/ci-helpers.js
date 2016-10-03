@@ -332,7 +332,7 @@ function configureGitUser() {
         `cd ${config.snappit.screenshotsDirectory}`,
         `git config user.name "${userName}"`,
         `git config user.email "${config.snappit.cicd.serviceAccount.userEmail}"`,
-        `cd ..`
+        `cd -`
     ];
     cmd(cmds.join('; '));
 };
@@ -345,7 +345,7 @@ function commitScreenshots() {
         `git add -A`,
         `git status -sb`,
         `git commit -m "${config.snappit.cicd.messages.commitMessage(getVars())}"`,
-        `cd ..`
+        `cd -`
     ];
     try {
         cmd(cmds.join('; '));
@@ -364,7 +364,7 @@ function pushCommit(pushUpstream, branchName) {
     let sensitiveCommand = [
         `cd ${config.snappit.screenshotsDirectory}`,
         `git push ${pushUrl} ${branchName} > /dev/null 2>&1`,
-        `cd ..`
+        `cd -`
     ].join('; ');
 
     safeExecSync(sensitiveCommand);
@@ -540,7 +540,7 @@ function findSha(repoUrl, pullRequestNumber) {
 function moveToTargetBranch() {
     let projectTargetBranchName = getVars().targetBranch;
     if (branchExists(screenshotsRepo, projectTargetBranchName)) {
-        cmd(`cd ${config.snappit.screenshotsDirectory}; git checkout ${projectTargetBranchName}; cd ..`);
+        cmd(`cd ${config.snappit.screenshotsDirectory}; git checkout ${projectTargetBranchName}; cd -`);
     } else {
         console.log(`No branch to merge against: target branch ${projectTargetBranchName}. Creating...`);
         checkoutOrphanedBranch(projectTargetBranchName);
@@ -585,7 +585,7 @@ function checkoutOrphanedBranch(branchName) {
         // delete everything that we care about (directories that aren't the .git directory)
         `find . -maxdepth 1 -mindepth 1 -type d | grep -v "./\.git" | xargs rm -rf`,
         `git commit --allow-empty -m "Start new screenshot catalog for ${projectOrg}/${projectRepoName}:${branchName}"`,
-        `cd ..`
+        `cd -`
     ];
 
     cmd(cmds.join('; '));

@@ -6,7 +6,6 @@ let _ = require('lodash');
 let chalk = require('chalk');
 let fs = require('fs-extra');
 let lwip = require('lwip');
-let promise = require('selenium-webdriver').promise;
 let resemble = require('node-resemble');
 let zfill = _.partialRight(_.padStart, '0');
 
@@ -121,7 +120,7 @@ let cropAndSaveImage = (image, elem, imageName, deferred, options) => {
     return elem.isPresent().then(present => {
         if (present) {
             let info = [elem.isDisplayed(), elem.getSize(), elem.getLocation()];
-            return promise.all(info).then(info => {
+            return protractor.promise.all(info).then(info => {
                 let displayed = info[0];
                 let size = info[1];
                 let location = info[2];
@@ -158,7 +157,7 @@ let snapOne = (testContext, elem, options) => {
             // prevent bogus diffs by waiting for the resize to finish completely
             browser.sleep(module.exports.sleep);
             return browser.takeScreenshot().then(screenshotData => {
-                let deferred = promise.defer();
+                let deferred = protractor.promise.defer();
                 lwip.open(new Buffer(screenshotData, 'base64'), 'png', (err, image) => {
                     if (err) {
                         console.log('Error opening screenshot:', err);
