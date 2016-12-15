@@ -117,6 +117,7 @@ function getSupportedCIEnvironments() {
         travis: {
             get name() { return 'travis'; },
             get url() { return 'https://travis-ci.org'; },
+            get buildUrl() { return `https://travis-ci.org/${this.repoSlug}/builds/${process.env.TRAVIS_BUILD_ID}`; },
             get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return process.env.TRAVIS_COMMIT_RANGE.slice(43, 50); },
             get pullRequestNumber() { return process.env.TRAVIS_PULL_REQUEST; },
@@ -133,6 +134,7 @@ function getSupportedCIEnvironments() {
         codeship: {
             get name() { return 'codeship'; },
             get url() { return 'https://codeship.io'; },
+            get buildUrl() { return process.env.CI_BUILD_URL; },
             get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
             // codeship builds when new commits are pushed, not when pull requests are opened
@@ -144,6 +146,7 @@ function getSupportedCIEnvironments() {
         jenkins: {
             get name() { return 'jenkins'; },
             get url() { return 'https://wiki.jenkins-ci.org/display/JENKINS/GitHub+pull+request+builder+plugin'; },
+            get buildUrl() { return process.env.BUILD_URL; },
             get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return findSha(projectRepo, this.pullRequestNumber).slice(0, 7); },
             get pullRequestNumber() { return process.env.sha1.match(/pr\/(\d+)\/merge/)[1]; },
@@ -154,6 +157,7 @@ function getSupportedCIEnvironments() {
         undefined: {
             get name() { return 'unknown-ci-provider'; },
             get url() { return 'https://github.com/rackerlabs/snappit-mocha-protractor/issues/new'; },
+            get buildUrl() { return 'https://github.com/rackerlabs/snappit-mocha-protractor/issues/new'; },
             get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return 'sha1-unavailable'; },
             get pullRequestNumber() { return 'pull-request-number-unavailable'; },
