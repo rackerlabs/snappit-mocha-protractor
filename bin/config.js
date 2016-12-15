@@ -40,10 +40,11 @@ let setConfigDefaults = config => {
         },
 
         pullRequestBody: function (vars) {
+            let buildLogFooter = `\n\nAlso, the [build log](${vars.buildUrl}) is available.`;
             if (vars.pullRequestNumber) {
-                return `See ${vars.repoSlug}#${vars.pullRequestNumber}.`
+                return `See ${vars.repoSlug}#${vars.pullRequestNumber}.${buildLogFooter}`
             }
-            return `See ${vars.repoSlug}@${vars.sha1}. Pull request number unknown.`;
+            return `See ${vars.repoSlug}@${vars.sha1}. Pull request number unknown.${buildLogFooter}`;
         },
 
         pullRequestTitle: function (vars) {
