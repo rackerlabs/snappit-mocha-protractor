@@ -35,6 +35,23 @@ Finally, it clones the screenshots repository (as a submodule) into the director
 Run this command before you have run your visual regression test using protractor.
 `;
 
+exports.statusAutomationFooter = (statusUrl, screenshotsPullRequestUrl,
+                                  description, context, ignoreSSLWarnings) => {
+    return `
+<details>
+<summary><sup><sub>Note: this pull request is using the github status API. Please ignore, this is for automation only.</sup></sub></summary>
+\`\`\`snappit
+{
+    "status_url": "${statusUrl}",
+    "target_url": "${screenshotsPullRequestUrl}",
+    "description": "${description}",
+    "context": "${context}",
+    "ignoreSSLWarnings": "${ignoreSSLWarnings}"
+}
+\`\`\`
+</details>
+`;
+
 exports.commitDescription = `
 Commit all changed screenshots to the submodule on the branch name specified in 'config.snappit.cicd.messages.branchName'.
 Will use the commit message format specified in the config entry for 'config.snappit.cicd.messages.commitMessage'.

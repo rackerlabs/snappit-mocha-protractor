@@ -4,7 +4,18 @@ let path = require('path');
 
 const _ = require('lodash');
 
+const descriptions = require('./descriptions');
+
 let setConfigDefaults = config => {
+    if (config.snappit === undefined) {
+        config.snappit = {};
+    }
+
+    config.snappit = _.default(config.snappit, {
+        screenshotsDirectory: './screenshots',
+        threshold: 3
+    });
+
     if (config.snappit.cicd === undefined) {
         config.snappit.cicd = {};
     }
@@ -26,6 +37,16 @@ let setConfigDefaults = config => {
         teamId: undefined
     });
 
+    if (config.snappit.cicd.statuses === undefined) {
+        config.snappit.cicd.statuses = {};
+    }
+
+    config.snappit.cicd.statuses = _.defaults(config.snappit.cicd.statuses, {
+        enabled: true,
+        context: 'continuous-integration/snappit-visreg',
+        description: 'Visual regression detected -- diff available'
+    });
+
     if (config.snappit.cicd.messages === undefined) {
         config.snappit.cicd.messages = {};
     }
@@ -40,17 +61,25 @@ let setConfigDefaults = config => {
         },
 
         pullRequestBody: function (vars) {
+            let offendingSha = `See ${vars.repoSlug}@${vars.sha1}`;
             let buildLogFooter = `\n\nAlso, the [build log](${vars.buildUrl}) is available.`;
+            if (config.snappit.cicd.statuses.enabled) {
+                return `${descriptions.pullRequestBodyWithStatuses}\n\n${offendingSha}${buildLogFooter}`;
+            }
+
             if (vars.pullRequestNumber) {
+                // Not using statuses...fallback to legacy behavior of creating a mention
                 return `See ${vars.repoSlug}#${vars.pullRequestNumber}.${buildLogFooter}`
             }
-            return `See ${vars.repoSlug}@${vars.sha1}. Pull request number unknown.${buildLogFooter}`;
+
+            return `See ${offendingSha}. Pull request number unknown.${buildLogFooter}`;
         },
 
         pullRequestTitle: function (vars) {
-            if (vars.pullRequestNumber) {
+            if (vars.pullRequestNumber && !config.snappit.cicd.statuses.enabled) {
                 return `Screenshots for ${vars.repoSlug}#${vars.pullRequestNumber}`
             }
+
             return `Screenshots for ${vars.repoSlug}@${vars.sha1}`;
         }
     });

@@ -95,7 +95,7 @@ if (require.main === module) {
     }
 
     let expectedBranchName = config.snappit.cicd.messages.branchName(vars);
-    let pullRequestNumber = findPullRequestNumber(screenshotsRepo, expectedBranchName, forkedScreenshotsRepo);
+    let pullRequestNumber = findPullRequest(screenshotsRepo, expectedBranchName, forkedScreenshotsRepo).number;
     if (pullRequestNumber !== undefined) {
         let msg = descriptions.pullRequestAlreadyExistsError(vars, screenshotsRepo, pullRequestNumber);
         throw new Error(msg);
@@ -138,7 +138,7 @@ function getSupportedCIEnvironments() {
             get repoSlug() { return projectRepo.path.slice(1); },
             get sha1() { return process.env.CI_COMMIT_ID.slice(0, 7); },
             // codeship builds when new commits are pushed, not when pull requests are opened
-            get pullRequestNumber() { return findPullRequestNumber(projectRepo, this.branch); },
+            get pullRequestNumber() { return findPullRequest(projectRepo, this.branch).number; },
             get branch() { return process.env.CI_BRANCH; },
             get targetBranch() { return findTargetBranch(projectRepo, this.pullRequestNumber); }
         },
@@ -330,6 +330,53 @@ function createForkAndClone() {
     });
 };
 
+function setStatus(visregPullRequestUrl, state) {
+    let vars = getVars();
+    console.log(`Creating a status as "${state}" against commit ${vars.sha1}`);
+
+    let u = buildApiUrl(repoUrl, `/repos/${repoSlug}/statuses/${vars.sha1}`);
+    let data = {
+        state: state,
+        target_url: visregPullRequestUrl,
+        description: config.snappit.ci.statuses.description,
+        context: config.snappit.ci.statuses.context
+    };
+
+    let options = {
+        hostname: u.hostname,
+        path: u.path,
+        method: 'POST',
+        headers: {
+            'User-Agent': 'snappit',
+            'Content-Type': 'application/json',
+            'Authorization': 'token ' + token
+        }
+    };
+
+    if (config.snappit.ignoreSSLWarnings) {
+        options.agent = insecureAgent;
+    }
+
+    return new Promise((resolve, reject) => {
+        let req = https.request(options, res => {
+            var data = [];
+            res.on('data', d => { data.push(d.toString('utf-8'))});
+            if (res.statusCode !== 201) {
+                res.on('end', () => {
+                    throw new Error(`(HTTP ${res.statusCode}) Something went wrong while creating the status:\n${data.join('')}`);
+                });
+            }
+            res.on('end', () => {
+                resolve(`Setting the status of pull request located at ${visregPullRequestUrl} to ${state}.`);
+            });
+        });
+
+        req.write(JSON.stringify(data));
+
+        req.end();
+    });
+};
+
 function configureGitUser() {
     console.log(`Preparing service account ${userName} to commit locally.`);
     let cmds = [
@@ -374,11 +421,27 @@ function pushCommit(pushUpstream, branchName) {
     safeExecSync(sensitiveCommand);
 };
 
+function buildStatusAutomationFooter(statusUrl) {
+    // used to note information needed to fail/succeed in a status check
+    // should the user have opted into this feature. This is not configurable, nor optional!
+    if (config.snappit.cicd.statuses.enabled) {
+        return descriptions.statusAutomationFooter(
+            statusUrl,
+            config.snappit.ci.statuses.description,
+            config.snappit.ci.statuses.context,
+            config.snappit.ignoreSSLWarnings
+        );
+    }
+
+    return '';
+}
+
 function makePullRequest(repoUrl) {
     let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls`);
+    let statusHref = buildApiUrl(repoUrl, `/repos/${repoSlug}/statuses/${vars.sha1}`).href;
     let data = {
         title: config.snappit.cicd.messages.pullRequestTitle(getVars()),
-        body: config.snappit.cicd.messages.pullRequestBody(getVars()),
+        body: config.snappit.cicd.messages.pullRequestBody(getVars()) + buildStatusAutomationFooter(statusHref),
         head: `${userName}:${config.snappit.cicd.messages.branchName(getVars())}`,
         base: config.snappit.cicd.targetBranch || getVars().targetBranch
     };
@@ -404,28 +467,29 @@ function makePullRequest(repoUrl) {
             if (res.statusCode !== 201) {
                 res.on('data', d => { data.push(d.toString('utf-8'))});
                 res.on('end', () => {
-                    let error = JSON.parse(data).errors[0].message;
+                    let response = JSON.parse(data);
+                    let error = response.errors[0].message;
                     if (_.startsWith(error, 'No commits between')) {
                         // this is fine. No new changes in the screenshots, so no pull request
-                        resolve();
+                        resolve(response);
                     } else {
                         throw new Error(`(HTTP ${res.statusCode}) Something went wrong with the pull request:\n${data.join('')}`);
                     }
                 });
             }
-            resolve();
+            resolve(response);
         });
 
         req.write(JSON.stringify(data));
 
         req.end();
-    });
+    }).then(response => setStatus(response.url, 'pending'));
+
 };
 
 function cmd(command) {
     execSync(`${command}`, { stdio: [0, 1, 2] })
 };
-
 
 /**
  * Will ensure that any errors that occur in `command` will have it's token values
@@ -498,14 +562,14 @@ function findBranchName(repoUrl, pullRequestNumber) {
  * @see "if (require.main === module)"
  * @see descriptions.pullRequestAlreadyExistsError
  */
-function findPullRequestNumber(repoUrl, branchName, remoteHeadUrl) {
+function findPullRequest(repoUrl, branchName, remoteHeadUrl) {
     let org = remoteHeadUrl === undefined ? repoOrg(repoUrl) : repoOrg(remoteHeadUrl);
 
     let u =  buildApiUrl(repoUrl, `/repos${repoUrl.path}/pulls?head=${org}:${branchName}`);
     let output = safeExecSync(`curl ${buildCurlFlags()} ${u.href} 2>/dev/null`).toString('utf-8');
     let pullRequests = JSON.parse(output);
     if (pullRequests.length) {
-        return pullRequests[0].number;
+        return pullRequests[0];
     }
 };
 
