@@ -1,10 +1,10 @@
 {
   "name": "snappit-mocha-protractor",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Take screenshots of just a section of your screen in Protractor tests. For Mocha.",
   "main": "index.js",
   "engines": {
-    "node": ">=4.0.0 <=5.1.1"
+    "node": ">=4.0.0 <=6.10.0"
   },
   "scripts": {
     "test": "mocha"
