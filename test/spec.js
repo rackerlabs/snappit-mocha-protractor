@@ -4,7 +4,7 @@ describe('Angular JS', function () {
     });
 
     it('should be on the right page', function () {
-        screenshot.snap(this, $('.center.stage-buttons'), {
+        screenshot.snap(this, $('.hero'), {
             resolutions: [[1366, 768], [320, 568]]
         });
         expect(browser.getTitle()).to.eventually.contain('AngularJS');
@@ -15,7 +15,7 @@ describe('Angular JS', function () {
     });
 
     it('should have a navigation section at the top', function () {
-        var navbar = $('.navbar-inner .container');
+        var navbar = $('#navbar-main');
         screenshot.snap(this, navbar, {
             resolutions: [[320, 568], [568, 320]],
             ignoreDefaultResolutions: true,
@@ -27,7 +27,7 @@ describe('Angular JS', function () {
     describe('Tutorial', function () {
 
         before(function () {
-            var dropdown = $('.dropdown .icon-book');
+            var dropdown = element(by.cssContainingText('.dropdown', 'Learn'));
             dropdown.click();
             screenshot.snap(this, $('.dropdown.open .dropdown-menu'));
             element(by.cssContainingText('.dropdown.open a', 'Tutorial')).click();
