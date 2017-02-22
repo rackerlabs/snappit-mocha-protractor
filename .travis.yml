@@ -2,7 +2,7 @@ sudo: required
 dist: trusty
 language: node_js
 node_js:
-  - "5.1.1" # same as .node-version
+  - "6.10.0" # same as .node-version
 addons:
   firefox: "45.0"
   apt:
